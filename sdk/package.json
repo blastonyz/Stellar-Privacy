@@ -1,0 +1,25 @@
+{
+  "scripts": {
+    "deploy:native-bn254": "node --require ./scripts/bootstrap-env.cjs ./node_modules/tsx/dist/cli.mjs scripts/deploy-native-bn254.ts",
+    "proof:register": "node --require ./scripts/bootstrap-env.cjs ./node_modules/tsx/dist/cli.mjs scripts/generate-register-proof.ts",
+    "proof:register-receptor": "node --require ./scripts/bootstrap-env.cjs ./node_modules/tsx/dist/cli.mjs scripts/generate-register-proof.ts --receptor",
+    "proof:transfer": "node --require ./scripts/bootstrap-env.cjs ./node_modules/tsx/dist/cli.mjs scripts/generate-transfer-proof.ts",
+    "check:register": "node --require ./scripts/bootstrap-env.cjs ./node_modules/tsx/dist/cli.mjs scripts/check-registration.ts owner",
+    "check:receptor": "node --require ./scripts/bootstrap-env.cjs ./node_modules/tsx/dist/cli.mjs scripts/check-registration.ts receptor",
+    "upload:vks": "node --require ./scripts/bootstrap-env.cjs ./node_modules/tsx/dist/cli.mjs scripts/upload-vks.ts",
+    "upload:vks:transfer": "node --require ./scripts/bootstrap-env.cjs ./node_modules/tsx/dist/cli.mjs scripts/upload-vks.ts Transfer",
+    "upload:vks:js": "node --require ./scripts/bootstrap-env.cjs scripts/upload-vks.mjs"
+  },
+  "dependencies": {
+    "@stellar/stellar-sdk": "^16.0.1",
+    "circomlibjs": "^0.1.7",
+    "dotenv": "^17.4.2",
+    "snarkjs": "^0.7.6"
+  },
+  "devDependencies": {
+    "@types/node": "^26.0.1",
+    "@types/snarkjs": "^0.7.9",
+    "tsx": "^4.20.6",
+    "typescript": "^6.0.3"
+  }
+}
