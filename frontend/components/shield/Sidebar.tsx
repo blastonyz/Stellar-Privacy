@@ -4,7 +4,9 @@ import { cn, shortAddress } from "@/lib/utils";
 import { useShield } from "@/providers/ShieldProvider";
 import type { NavSection } from "@/types";
 import {
+  ArrowDownToLine,
   Building2,
+  Coins,
   LayoutDashboard,
   Scale,
   SendHorizontal,
@@ -16,6 +18,8 @@ import { ConnectWalletButton } from "@/components/wallet/ConnectWalletButton";
 const navItems: { id: NavSection; label: string; icon: typeof LayoutDashboard }[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "transfer", label: "Confidential Transfer", icon: SendHorizontal },
+  { id: "deposit", label: "Shield Deposit", icon: ArrowDownToLine },
+  { id: "mint", label: "Enterprise Mint", icon: Coins },
   { id: "balances", label: "Corporate Balances", icon: Building2 },
   { id: "compliance", label: "Compliance & Audits", icon: Scale },
 ];

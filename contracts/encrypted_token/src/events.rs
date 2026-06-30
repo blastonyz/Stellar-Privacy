@@ -31,6 +31,13 @@ pub struct PrivateMint {
     pub to: Address,
 }
 
+#[contractevent(topics = ["enc", "deposit"])]
+pub struct Deposit {
+    #[topic]
+    pub user: Address,
+    pub amount: i128,
+}
+
 pub(crate) fn emit_registered(env: &Env, user: Address, user_pk: JubJubPoint) {
     Registered { user, user_pk }.publish(env);
 }
@@ -57,4 +64,8 @@ pub(crate) fn emit_vk_set(env: &Env, op: OpType) {
 
 pub(crate) fn emit_private_mint(env: &Env, to: Address) {
     PrivateMint { to }.publish(env);
+}
+
+pub(crate) fn emit_deposit(env: &Env, user: Address, amount: i128) {
+    Deposit { user, amount }.publish(env);
 }

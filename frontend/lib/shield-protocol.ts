@@ -116,13 +116,5 @@ export function extractPublicInputs(events: Awaited<ReturnType<typeof fetchContr
   };
 }
 
+export { loadBabyJubSecret, saveBabyJubSecret } from "@/lib/keys/view-key-store";
 export const BABYJUB_STORAGE_PREFIX = "shield-babyjub-sk:";
-
-export function loadBabyJubSecret(address: string): string | null {
-  if (typeof window === "undefined") return null;
-  return window.localStorage.getItem(`${BABYJUB_STORAGE_PREFIX}${address}`);
-}
-
-export function saveBabyJubSecret(address: string, sk: string): void {
-  window.localStorage.setItem(`${BABYJUB_STORAGE_PREFIX}${address}`, sk);
-}

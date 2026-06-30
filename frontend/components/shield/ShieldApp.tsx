@@ -4,6 +4,8 @@ import { ComplianceAudits } from "@/components/shield/ComplianceAudits";
 import { ConfidentialTransferForm } from "@/components/shield/ConfidentialTransferForm";
 import { CorporateBalances } from "@/components/shield/CorporateBalances";
 import { DashboardOverview } from "@/components/shield/DashboardOverview";
+import { DepositForm } from "@/components/shield/DepositForm";
+import { MintForm } from "@/components/shield/MintForm";
 import { ProofStatusWidget } from "@/components/shield/ProofStatusWidget";
 import { Sidebar } from "@/components/shield/Sidebar";
 import { WalletStatusBanner } from "@/components/wallet/ConnectWalletButton";
@@ -13,6 +15,8 @@ import { useState } from "react";
 const titles: Record<NavSection, string> = {
   dashboard: "Overview",
   transfer: "Confidential Transfer",
+  deposit: "Shield Deposit",
+  mint: "Enterprise Mint",
   balances: "Corporate Balances",
   compliance: "Compliance & Audits",
 };
@@ -34,6 +38,8 @@ export function ShieldApp() {
         <main className="flex-1 overflow-y-auto px-8 py-8">
           {activeSection === "dashboard" && <DashboardOverview />}
           {activeSection === "transfer" && <ConfidentialTransferForm />}
+          {activeSection === "deposit" && <DepositForm />}
+          {activeSection === "mint" && <MintForm />}
           {activeSection === "balances" && <CorporateBalances />}
           {activeSection === "compliance" && <ComplianceAudits />}
         </main>

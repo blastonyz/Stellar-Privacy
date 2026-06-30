@@ -205,6 +205,32 @@ impl EncryptedToken {
         Ok(())
     }
 
+    // ─── Converter mode: public deposit → shielded balance ────
+
+    // User deposits a public amount and updates their encrypted balance.
+    pub fn deposit(
+        env: Env,
+        user: Address,
+        amount: i128,
+        new_balance: EncryptedBalance,
+        proof: Proof,
+        pub_signals: Vec<FieldBytes>,
+    ) -> Result<(), Error> {
+        user.require_auth();
+        Self::require_registered(&env, &user)?;
+
+        if amount < 1 {
+            return Err(Error::BalanceMismatch);
+        }
+
+        let vk = Self::load_vk(&env, OpType::Deposit)?;
+        Self::verify_proof(&env, &vk, &proof, &pub_signals)?;
+
+        env.storage().persistent().set(&DataKey::Balance(user.clone()), &new_balance);
+        events::emit_deposit(&env, user, amount);
+        Ok(())
+    }
+
     // ─── Private transfer (both modes) ────────────────────────
 
     // Transfer encrypted tokens between registered users.

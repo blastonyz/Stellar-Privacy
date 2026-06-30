@@ -1,5 +1,22 @@
 {
+  "name": "encrypted-stellar-sdk",
+  "type": "module",
+  "exports": {
+    "./client": {
+      "types": "./dist/client.d.ts",
+      "default": "./src/client.ts"
+    },
+    "./bn254": {
+      "types": "./dist/bn254.d.ts",
+      "default": "./src/bn254.ts"
+    },
+    "./prover": {
+      "types": "./dist/prover.d.ts",
+      "default": "./src/prover.ts"
+    }
+  },
   "scripts": {
+    "build": "tsc",
     "deploy:native-bn254": "node --require ./scripts/bootstrap-env.cjs ./node_modules/tsx/dist/cli.mjs scripts/deploy-native-bn254.ts",
     "proof:register": "node --require ./scripts/bootstrap-env.cjs ./node_modules/tsx/dist/cli.mjs scripts/generate-register-proof.ts",
     "proof:register-receptor": "node --require ./scripts/bootstrap-env.cjs ./node_modules/tsx/dist/cli.mjs scripts/generate-register-proof.ts --receptor",

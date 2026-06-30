@@ -2,6 +2,7 @@ SHELL := bash
 ROOT := $(CURDIR)
 SDK := $(ROOT)/sdk
 FRONTEND := $(ROOT)/frontend
+BACKEND := $(ROOT)/backend
 PTAU ?= $(ROOT)/powersOfTau28_hez_final_14.ptau
 CONTRACT_ID ?= $(shell grep '^ENCRYPTED_TOKEN_CONTRACT_ID=' $(ROOT)/.env | cut -d= -f2)
 NODE_TLS ?= 0
@@ -17,7 +18,8 @@ export $(NODE_ENV_FLAGS)
 .PHONY: help install-sdk circuits circuits-phase2 circuits-clean \
         build-contracts test-contracts generate-bindings deploy upload-vks upload-vk-transfer \
         proof-register proof-register-receptor proof-transfer check-register check-receptor \
-        decrypt-balance decrypt-receptor fetch-events install-frontend dev-frontend build-frontend
+        decrypt-balance decrypt-receptor fetch-events install-frontend dev-frontend build-frontend \
+        install-backend dev-backend build-backend
 
 help:
 	@echo "Encrypted Stellar — common targets"
@@ -42,6 +44,9 @@ help:
 	@echo "  make install-frontend       npm install in frontend/"
 	@echo "  make dev-frontend           run Shield dashboard (Next.js)"
 	@echo "  make build-frontend         production build for frontend/"
+	@echo "  make install-backend        npm install in backend/"
+	@echo "  make dev-backend            run Shield Express + rapidsnark API"
+	@echo "  make build-backend          compile backend TypeScript"
 
 install-sdk:
 	cd $(SDK) && npm install
@@ -109,3 +114,12 @@ dev-frontend:
 
 build-frontend:
 	cd $(FRONTEND) && npm run build
+
+install-backend:
+	cd $(BACKEND) && npm install
+
+dev-backend:
+	cd $(BACKEND) && npm run dev
+
+build-backend:
+	cd $(BACKEND) && npm run build

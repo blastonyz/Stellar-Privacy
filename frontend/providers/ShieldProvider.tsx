@@ -2,13 +2,14 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useFreighter } from "@/hooks/useFreighter";
+import { shieldApi } from "@/lib/api/shield-client";
+import { decryptBalanceLocal } from "@/lib/decrypt";
+import { loadViewKey, saveViewKey } from "@/lib/keys/view-key-store";
 import {
   extractPublicInputs,
   fetchContractEvents,
   fetchEncryptedBalance,
   fetchIsRegistered,
-  loadBabyJubSecret,
-  saveBabyJubSecret,
 } from "@/lib/shield-protocol";
 import { signAndSubmit } from "@/lib/transactions";
 import type { ContractEvent, PublicInputs, ShieldAccountState } from "@/types";
@@ -28,6 +29,8 @@ type ShieldContextValue = {
     fromBalance?: string;
     toBalance?: string;
   }) => Promise<string>;
+  deposit: (amount: string) => Promise<string>;
+  mint: (to: string, amount: string) => Promise<string>;
   decryptLocalBalance: () => Promise<string | null>;
 };
 
@@ -67,7 +70,7 @@ export function ShieldProvider({ children }: { children: React.ReactNode }) {
         fetchContractEvents(25),
       ]);
 
-      const babyJubSk = loadBabyJubSecret(wallet.address);
+      const babyJubSk = loadViewKey(wallet.address);
       setAccount({
         registered,
         encryptedBalance,
@@ -89,18 +92,11 @@ export function ShieldProvider({ children }: { children: React.ReactNode }) {
 
   const register = useCallback(async () => {
     if (!wallet.address) throw new Error("Connect Freighter first");
-    setStatus("Generating register proof...");
+    setStatus("Generating register proof via Shield backend...");
     try {
-      const response = await fetch("/api/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ address: wallet.address }),
-      });
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error ?? "Register build failed");
-
-      saveBabyJubSecret(wallet.address, payload.babyJub.sk);
-      setStatus("Please sign registration in Freighter...");
+      const payload = await shieldApi.register(wallet.address);
+      saveViewKey(wallet.address, payload.babyJub.sk);
+      setStatus("Save your view key locally. Sign registration in Freighter...");
       const result = await signAndSubmit(payload.unsignedXdr, wallet.sign);
       setStatus(`Registered successfully. Tx: ${result.hash}`);
       await refresh();
@@ -114,30 +110,24 @@ export function ShieldProvider({ children }: { children: React.ReactNode }) {
   const transfer = useCallback(
     async (input: { to: string; amount: string; fromBalance?: string; toBalance?: string }) => {
       if (!wallet.address) throw new Error("Connect Freighter first");
-      const babyJubSk = loadBabyJubSecret(wallet.address);
+      const babyJubSk = loadViewKey(wallet.address);
       if (!babyJubSk) {
-        throw new Error("Missing BabyJub secret. Register on-chain first.");
+        throw new Error("Missing view key. Register on-chain first.");
       }
 
-      setStatus("Generating transfer proof...");
+      setStatus("Generating transfer proof via Shield backend...");
       try {
-        const response = await fetch("/api/transfer", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            from: wallet.address,
-            to: input.to,
-            amount: input.amount,
-            babyJubSk,
-            fromBalance: input.fromBalance,
-            toBalance: input.toBalance,
-          }),
+        const payload = await shieldApi.transfer({
+          from: wallet.address,
+          to: input.to,
+          amount: input.amount,
+          babyJubSk,
+          fromBalance: input.fromBalance,
+          toBalance: input.toBalance,
         });
-        const payload = await response.json();
-        if (!response.ok) throw new Error(payload.error ?? "Transfer build failed");
 
         if (payload.publicInputs) {
-          setPublicInputs(payload.publicInputs);
+          setPublicInputs(payload.publicInputs as PublicInputs);
         }
 
         setStatus("Please sign transfer in Freighter...");
@@ -154,26 +144,60 @@ export function ShieldProvider({ children }: { children: React.ReactNode }) {
     [refresh, wallet],
   );
 
+  const deposit = useCallback(
+    async (amount: string) => {
+      if (!wallet.address) throw new Error("Connect Freighter first");
+      setStatus("Generating deposit proof via Shield backend...");
+      try {
+        const payload = await shieldApi.deposit({ user: wallet.address, amount });
+        setStatus("Please sign deposit in Freighter...");
+        const result = await signAndSubmit(payload.unsignedXdr, wallet.sign);
+        setStatus(`Deposit submitted. Tx: ${result.hash}`);
+        await refresh();
+        return result.hash;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        setStatus(message);
+        throw error;
+      }
+    },
+    [refresh, wallet],
+  );
+
+  const mint = useCallback(
+    async (to: string, amount: string) => {
+      if (!wallet.address) throw new Error("Connect Freighter first");
+      setStatus("Generating mint proof via Shield backend...");
+      try {
+        const payload = await shieldApi.mint({
+          admin: wallet.address,
+          to,
+          amount,
+        });
+        setStatus("Please sign mint in Freighter (admin)...");
+        const result = await signAndSubmit(payload.unsignedXdr, wallet.sign);
+        setStatus(`Mint submitted. Tx: ${result.hash}`);
+        await refresh();
+        return result.hash;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        setStatus(message);
+        throw error;
+      }
+    },
+    [refresh, wallet],
+  );
+
   const decryptLocalBalance = useCallback(async () => {
     if (!wallet.address || !account.encryptedBalance) return null;
-    const babyJubSk = loadBabyJubSecret(wallet.address);
-    if (!babyJubSk) {
-      throw new Error("Missing BabyJub secret for decryption");
+    const viewKey = loadViewKey(wallet.address);
+    if (!viewKey) {
+      throw new Error("Missing view key for decryption");
     }
 
-    const response = await fetch("/api/decrypt", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        babyJubSk,
-        encryptedBalance: account.encryptedBalance,
-      }),
-    });
-    const payload = await response.json();
-    if (!response.ok) throw new Error(payload.error ?? "Decrypt failed");
-
-    setAccount((current) => ({ ...current, decryptedBalance: payload.balance }));
-    return payload.balance as string;
+    const balance = await decryptBalanceLocal(account.encryptedBalance, viewKey);
+    setAccount((current) => ({ ...current, decryptedBalance: balance }));
+    return balance;
   }, [account.encryptedBalance, wallet.address]);
 
   const value = useMemo(
@@ -187,6 +211,8 @@ export function ShieldProvider({ children }: { children: React.ReactNode }) {
       refresh,
       register,
       transfer,
+      deposit,
+      mint,
       decryptLocalBalance,
     }),
     [
@@ -199,6 +225,8 @@ export function ShieldProvider({ children }: { children: React.ReactNode }) {
       refresh,
       register,
       transfer,
+      deposit,
+      mint,
       decryptLocalBalance,
     ],
   );

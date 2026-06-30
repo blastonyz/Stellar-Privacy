@@ -1,6 +1,8 @@
 export type NavSection =
   | "dashboard"
   | "transfer"
+  | "deposit"
+  | "mint"
   | "balances"
   | "compliance";
 

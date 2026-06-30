@@ -1,5 +1,6 @@
 .env
 node_modules
+backend/node_modules
 frontend/node_modules
 frontend/.next
 frontend/.env.local
@@ -8,3 +9,5 @@ target
 contracts/*/test_snapshots/
 sdk/bindings/*/node_modules/
 sdk/bindings/*/dist/
+sdk/dist/
+backend/dist/

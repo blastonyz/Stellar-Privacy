@@ -16,6 +16,7 @@
     "@stellar/freighter-api": "^6.0.1",
     "@stellar/stellar-sdk": "^16.0.1",
     "buffer": "^6.0.3",
+    "circomlibjs": "^0.1.7",
     "clsx": "^2.1.1",
     "dotenv": "^17.4.2",
     "lucide-react": "^1.22.0",
