@@ -63,6 +63,7 @@ sdk/
     deploy-native-bn254.ts
     generate-register-proof.ts
     upload-vks.ts
+frontend/               Shield B2B dashboard (Next.js mock UI)
 scripts/build-circuits.sh
 .env                    RPC, SECRET_KEY, contract IDs
 ```
@@ -297,6 +298,40 @@ Only the account owner can decrypt their balance; the chain stores `(c1, c2)` po
 
 After a successful transfer, `circuits/build/transfer/transfer-state.json` records the expected plaintext balances for reference.
 
+## 10. Shield dashboard (Freighter + Soroban)
+
+The `frontend/` app connects to Freighter and the deployed `encrypted_token` contract on testnet.
+
+Real features:
+
+- Freighter connect / disconnect / network mismatch banner
+- On-chain reads via Soroban simulation: `is_registered`, `get_balance`
+- Live contract events via RPC `getEvents`
+- Register flow: `/api/register` builds Groth16 proof + unsigned tx → Freighter sign → submit
+- Transfer flow: `/api/transfer` builds proof + unsigned tx → Freighter sign → submit
+- Local decrypt via `/api/decrypt` using BabyJub secret stored in browser `localStorage`
+
+Setup:
+
+```bash
+cp frontend/.env.local.example frontend/.env.local
+make install-frontend
+make dev-frontend
+```
+
+Requirements:
+
+- [Freighter](https://www.freighter.app/) on Testnet
+- Funded testnet account in Freighter
+- Built circuits at `circuits/build/` (for API proof generation)
+- `ENCRYPTED_TOKEN_CONTRACT_ID` in `frontend/.env.local`
+
+Production build uses webpack (required for SDK proof imports):
+
+```bash
+make build-frontend
+```
+
 ## Makefile targets
 
 ```bash
@@ -315,6 +350,9 @@ make check-receptor
 make decrypt-balance
 make decrypt-receptor
 make fetch-events
+make install-frontend
+make dev-frontend
+make build-frontend
 ```
 
 ## npm scripts
@@ -335,4 +373,5 @@ make fetch-events
 - Transfer: end-to-end on testnet **working**
 - Decrypt: local display via `make decrypt-receptor` / `make decrypt-balance`
 - Events: `Registered` / `VkSet` verified via `make fetch-events`; `PrivateTransfer` emits on successful transfers
+- Frontend: Shield dashboard with Freighter + Soroban via `make dev-frontend`
 - Mint / deposit / withdraw: circuits present; scripts TODO

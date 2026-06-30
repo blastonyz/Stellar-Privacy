@@ -1,6 +1,7 @@
 SHELL := bash
 ROOT := $(CURDIR)
 SDK := $(ROOT)/sdk
+FRONTEND := $(ROOT)/frontend
 PTAU ?= $(ROOT)/powersOfTau28_hez_final_14.ptau
 CONTRACT_ID ?= $(shell grep '^ENCRYPTED_TOKEN_CONTRACT_ID=' $(ROOT)/.env | cut -d= -f2)
 NODE_TLS ?= 0
@@ -16,7 +17,7 @@ export $(NODE_ENV_FLAGS)
 .PHONY: help install-sdk circuits circuits-phase2 circuits-clean \
         build-contracts test-contracts generate-bindings deploy upload-vks upload-vk-transfer \
         proof-register proof-register-receptor proof-transfer check-register check-receptor \
-        decrypt-balance decrypt-receptor fetch-events
+        decrypt-balance decrypt-receptor fetch-events install-frontend dev-frontend build-frontend
 
 help:
 	@echo "Encrypted Stellar — common targets"
@@ -38,6 +39,9 @@ help:
 	@echo "  make decrypt-balance      fetch + decrypt owner encrypted balance"
 	@echo "  make decrypt-receptor     fetch + decrypt receptor encrypted balance"
 	@echo "  make fetch-events         fetch recent contract events"
+	@echo "  make install-frontend       npm install in frontend/"
+	@echo "  make dev-frontend           run Shield dashboard (Next.js)"
+	@echo "  make build-frontend         production build for frontend/"
 
 install-sdk:
 	cd $(SDK) && npm install
@@ -96,3 +100,12 @@ decrypt-receptor:
 
 fetch-events:
 	cd $(SDK) && npm run events:fetch
+
+install-frontend:
+	cd $(FRONTEND) && npm install
+
+dev-frontend:
+	cd $(FRONTEND) && npm run dev
+
+build-frontend:
+	cd $(FRONTEND) && npm run build

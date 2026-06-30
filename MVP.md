@@ -5,7 +5,7 @@ The application acts as a secure enterprise web interface where companies connec
 Please include the following core views and components in a unified, single-page application layout with a sidebar navigation:
 
 1. Sidebar Navigation:
-- Brand Logo: "StellarShield" or "Aegis Ledger"
+- Brand Logo: "Shield" 
 - Links: Dashboard (Overview), Confidential Transfer, Corporate Balances, Compliance & Audits.
 - Bottom: Wallet Connection Status ("Connected via Freighter: GD3V...4Z2R" with a subtle green dot badge).
 

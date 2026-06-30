@@ -1,5 +1,8 @@
 .env
 node_modules
+frontend/node_modules
+frontend/.next
+frontend/.env.local
 build
 target
 contracts/*/test_snapshots/
