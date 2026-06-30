@@ -6,6 +6,9 @@
     "proof:transfer": "node --require ./scripts/bootstrap-env.cjs ./node_modules/tsx/dist/cli.mjs scripts/generate-transfer-proof.ts",
     "check:register": "node --require ./scripts/bootstrap-env.cjs ./node_modules/tsx/dist/cli.mjs scripts/check-registration.ts owner",
     "check:receptor": "node --require ./scripts/bootstrap-env.cjs ./node_modules/tsx/dist/cli.mjs scripts/check-registration.ts receptor",
+    "decrypt:balance": "node --require ./scripts/bootstrap-env.cjs ./node_modules/tsx/dist/cli.mjs scripts/decrypt-balance.ts owner",
+    "decrypt:receptor": "node --require ./scripts/bootstrap-env.cjs ./node_modules/tsx/dist/cli.mjs scripts/decrypt-balance.ts receptor",
+    "events:fetch": "node --require ./scripts/bootstrap-env.cjs ./node_modules/tsx/dist/cli.mjs scripts/fetch-contract-events.ts",
     "upload:vks": "node --require ./scripts/bootstrap-env.cjs ./node_modules/tsx/dist/cli.mjs scripts/upload-vks.ts",
     "upload:vks:transfer": "node --require ./scripts/bootstrap-env.cjs ./node_modules/tsx/dist/cli.mjs scripts/upload-vks.ts Transfer",
     "upload:vks:js": "node --require ./scripts/bootstrap-env.cjs scripts/upload-vks.mjs"

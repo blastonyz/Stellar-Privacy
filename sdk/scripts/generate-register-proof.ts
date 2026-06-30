@@ -120,20 +120,6 @@ async function main(): Promise<void> {
 
   fs.writeFileSync(proofPath, JSON.stringify(snarkProof, null, 2));
   fs.writeFileSync(publicPath, JSON.stringify(proofResult.publicSignals, null, 2));
-  fs.writeFileSync(
-    statePath,
-    JSON.stringify(
-      {
-        stellarAddress,
-        sk: keypair.sk.toString(),
-        pk: { x: proofResult.pk.x.toString(), y: proofResult.pk.y.toString() },
-        pkHash: proofResult.pkHash,
-      },
-      null,
-      2,
-    ),
-  );
-  console.log(`Wrote ${statePath}`);
 
   const vk = readJson<SnarkJsVerificationKey>(vkPath);
   const localOk = await snarkjs.groth16.verify(
@@ -147,6 +133,7 @@ async function main(): Promise<void> {
   }
 
   if (SKIP_ONCHAIN === "1" || SKIP_ONCHAIN.toLowerCase() === "true") {
+    writeRegisterState(keypair.sk, proofResult);
     return;
   }
 
@@ -209,7 +196,28 @@ async function main(): Promise<void> {
 
   console.log(`Wrote ${proofPath}`);
   console.log(`Wrote ${publicPath}`);
+  writeRegisterState(keypair.sk, proofResult);
   console.log(`Registered ${stellarAddress} (${registerTarget})`);
+}
+
+function writeRegisterState(
+  sk: bigint,
+  proofResult: { pk: { x: bigint; y: bigint }; pkHash: string },
+): void {
+  fs.writeFileSync(
+    statePath,
+    JSON.stringify(
+      {
+        stellarAddress,
+        sk: sk.toString(),
+        pk: { x: proofResult.pk.x.toString(), y: proofResult.pk.y.toString() },
+        pkHash: proofResult.pkHash,
+      },
+      null,
+      2,
+    ),
+  );
+  console.log(`Wrote ${statePath}`);
 }
 
 function assertFile(filePath: string): void {

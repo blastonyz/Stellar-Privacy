@@ -197,22 +197,38 @@ async function main(): Promise<void> {
   );
   const sent = await submit(txEnv, transferTx);
   await waitForTransaction(txEnv, sent.hash, "encrypted_token.private_transfer");
+  fs.writeFileSync(
+    path.join(transferDir, "transfer-state.json"),
+    JSON.stringify(
+      {
+        sender: senderAddress,
+        receiver: receiverAddress,
+        amount: amount.toString(),
+        expectedSenderBalance: (vFromOld - amount).toString(),
+        expectedReceiverBalance: (vToOld + amount).toString(),
+        txHash: sent.hash,
+      },
+      null,
+      2,
+    ),
+  );
+  console.log(`Wrote ${path.join(transferDir, "transfer-state.json")}`);
   console.log(
     `Transferred ${amount} privately from ${senderAddress} to ${receiverAddress}`,
   );
 }
 
 function loadSenderSecret(): bigint {
+  if (fs.existsSync(REGISTER_STATE_PATH)) {
+    const state = readJson<{ sk: string }>(REGISTER_STATE_PATH);
+    return BigInt(state.sk);
+  }
   if (SENDER_BABYJUB_SK) {
     return BigInt(SENDER_BABYJUB_SK);
   }
-  if (!fs.existsSync(REGISTER_STATE_PATH)) {
-    throw new Error(
-      `Missing BabyJub secret. Set SENDER_BABYJUB_SK or run proof:register to create ${REGISTER_STATE_PATH}`,
-    );
-  }
-  const state = readJson<{ sk: string }>(REGISTER_STATE_PATH);
-  return BigInt(state.sk);
+  throw new Error(
+    `Missing BabyJub secret. Set SENDER_BABYJUB_SK or run proof:register to create ${REGISTER_STATE_PATH}`,
+  );
 }
 
 async function uploadTransferVk(): Promise<void> {

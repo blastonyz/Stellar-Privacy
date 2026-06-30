@@ -2,6 +2,8 @@
 
 Private token balances on Stellar/Soroban using **Twisted ElGamal** (BabyJubJub) and **BN254 Groth16** proofs verified with the host's native pairing precompile.
 
+# This implementation is part of an ongoing R&D initiative exploring the deployment of Twisted ElGamal privacy primitives within WebAssembly-based execution environments (Soroban). The current codebase serves strictly as a non-production, cryptographic research proof-of-concept for performance benchmarking on the Stellar Testnet.
+
 ## Architecture
 
 Two Soroban contracts stay under the **64 KB WASM limit**:
@@ -21,6 +23,22 @@ Client (snarkjs)
 
 **Circuits** (Circom): `register`, `mint`, `transfer`, `deposit`, `withdraw`  
 **Public signals** bind Poseidon hashes of keys/balances (Circom uses Poseidon; on-chain hash helpers live in `poseidon_circom.rs` for tests only).
+
+## Protocol asset lifecycle flow
+
+The protocol uses a hybrid Converter/Standalone architecture on Stellar, bridging public asset transparency with cryptographic confidentiality.
+
+### Deposit phase (public to shielded)
+
+Users deposit public Stellar assets, such as Soroban USDC, into the `encrypted_token` protocol contract. In converter mode this would execute a native token transfer from the user to protocol escrow, leaving the total locked supply auditable on the public ledger. In parallel, `deposit.circom` proves that the public amount is correctly encrypted under the user's BabyJub public key and homomorphically added to their previous balance commitment. The contract then replaces the user's encrypted balance state with the new ciphertext/hash-backed state.
+
+### Private transfer phase (confidential settlement)
+
+The sender transfers a hidden value to a pre-registered receiver. On-chain, the token contract only updates encrypted balances and emits privacy-safe event metadata. No asset quantities or plaintext balances are exposed. Stellar nodes verify the Groth16 proof generated from `transfer.circom`, preventing overdrafts and malformed balance updates without learning the transferred amount.
+
+### Mint phase (standalone enterprise injection)
+
+An authorized administrator can provision encrypted token supply directly to a registered account without locking a public asset first. `mint.circom` proves that the minted value is encrypted under the recipient's authenticated key, allowing standalone enterprise demos where circulation remains private from public observers.
 
 ## Prerequisites
 
@@ -93,6 +111,14 @@ Run contract unit tests (includes Circom-compatible Poseidon checks):
 cargo test -p encrypted_token
 ```
 
+Generate TypeScript bindings from the optimized WASM:
+
+```bash
+make generate-bindings
+```
+
+Bindings are generated under `sdk/bindings/encrypted_token` and `sdk/bindings/groth16_verifier`.
+
 ## 4. Configure environment
 
 Create `.env` at repo root:
@@ -129,7 +155,7 @@ This script:
 1. Builds and optimizes both contracts
 2. Uploads WASM and deploys `groth16_verifier`, then `encrypted_token(admin, verifier)`
 3. Uploads the **Register** VK to the token contract
-4. Prints contract IDs for `.env`
+4. Writes new contract IDs back to `.env`
 
 ## 6. Upload verification keys
 
@@ -176,6 +202,30 @@ Register circuit uses **1** public signal (`pk_hash`). Pass `expectedPublicSigna
 | `get_user_pk(user)` | Read JubJub public key |
 | `is_registered(user)` | Registration flag |
 
+## Contract events
+
+`encrypted_token` emits privacy-safe Soroban contract events for indexers and frontends:
+
+| Event | Topics | Data |
+|-------|--------|------|
+| `Registered` | `enc`, `register`, `user` | `user_pk` |
+| `PrivateTransfer` | `enc`, `xfer`, `from`, `to` | `new_from_hash`, `new_to_hash` |
+| `VkSet` | `enc`, `vk`, `op` | `{}` |
+| `PrivateMint` | `enc`, `mint`, `to` | `{}` |
+
+The transfer event intentionally omits amount and plaintext balances. It only exposes addresses and ciphertext hashes already required as public proof signals.
+
+Fetch recent events:
+
+```bash
+make fetch-events
+cd sdk && npm run events:fetch -- register
+cd sdk && npm run events:fetch -- xfer
+cd sdk && npm run events:fetch -- xfer <tx_hash>
+```
+
+The script also accepts explicit flags when invoked directly, for example `node --require ./scripts/bootstrap-env.cjs ./node_modules/tsx/dist/cli.mjs scripts/fetch-contract-events.ts --topic xfer --tx <tx_hash>`.
+
 ## Troubleshooting
 
 | Issue | Fix |
@@ -214,6 +264,39 @@ make proof-transfer
 
 The script uploads the Transfer VK, generates a Groth16 proof, and calls `private_transfer`.
 
+After redeploying contracts, re-run the full testnet loop because storage does not carry across contract IDs:
+
+```bash
+make upload-vks
+make proof-register
+make proof-register-receptor
+make upload-vk-transfer
+make proof-transfer
+make fetch-events
+```
+
+## 9. Decrypt balance (display)
+
+Fetch the on-chain Twisted ElGamal ciphertext via `get_balance`, then decrypt locally with the user's BabyJub secret key (`decrypt()` in `sdk/src/client.ts`).
+
+```bash
+make decrypt-receptor    # receptor should show 10 after a TRANSFER_AMOUNT=10 transfer
+make decrypt-balance     # owner side (needs matching BabyJub sk in .env / state.json)
+```
+
+Secret key resolution order:
+
+| Target | Env vars | Fallback file |
+|--------|----------|---------------|
+| owner | `BABYJUB_SK`, `SENDER_BABYJUB_SK` | `circuits/build/register/state.json` |
+| receptor | `BABYJUB_SK`, `RECEPTOR_BABYJUB_SK` | `circuits/build/register/state-receptor.json` |
+
+Only the account owner can decrypt their balance; the chain stores `(c1, c2)` points only.
+
+**Important:** the BabyJub `sk` in your local state file must match the public key stored at registration (`get_user_pk`). If a register run failed after generating a new keypair, it may have overwritten `state-receptor.json` with a key that was never registered — decrypt will fail until you restore the original state file.
+
+After a successful transfer, `circuits/build/transfer/transfer-state.json` records the expected plaintext balances for reference.
+
 ## Makefile targets
 
 ```bash
@@ -221,6 +304,7 @@ make help                  # list all targets
 make install-sdk
 make circuits-phase2 PTAU=./powersOfTau28_hez_final_14.ptau
 make build-contracts
+make generate-bindings
 make deploy
 make upload-vk-transfer
 make proof-register
@@ -228,6 +312,9 @@ make proof-register-receptor
 make proof-transfer
 make check-register
 make check-receptor
+make decrypt-balance
+make decrypt-receptor
+make fetch-events
 ```
 
 ## npm scripts
@@ -238,10 +325,14 @@ make check-receptor
 | `proof:register` | Register proof + on-chain register |
 | `proof:transfer` | Transfer proof + `private_transfer` |
 | `check:register` / `check:receptor` | Query `is_registered` |
+| `decrypt:balance` / `decrypt:receptor` | Fetch + decrypt encrypted balance |
+| `events:fetch` | Fetch recent Soroban contract events |
 | `upload:vks` | Upload all VKs to `CONTRACT_ID` |
 
 ## Status
 
 - Register: end-to-end on testnet **working**
-- Transfer: SDK script + Makefile ready; requires receptor registration + owner BabyJub `sk`
+- Transfer: end-to-end on testnet **working**
+- Decrypt: local display via `make decrypt-receptor` / `make decrypt-balance`
+- Events: `Registered` / `VkSet` verified via `make fetch-events`; `PrivateTransfer` emits on successful transfers
 - Mint / deposit / withdraw: circuits present; scripts TODO

@@ -54,7 +54,7 @@ const {
 
 const SIGNING_SECRET = SECRET_KEY ?? ADMIN_SECRET;
 
-const contractId = CONTRACT_ID ?? ENCRYPTED_TOKEN_CONTRACT_ID;
+const contractId = ENCRYPTED_TOKEN_CONTRACT_ID ?? CONTRACT_ID;
 
 if (!contractId) {
   throw new Error("Missing CONTRACT_ID or ENCRYPTED_TOKEN_CONTRACT_ID env var");

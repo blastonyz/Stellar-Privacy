@@ -2,3 +2,6 @@
 node_modules
 build
 target
+contracts/*/test_snapshots/
+sdk/bindings/*/node_modules/
+sdk/bindings/*/dist/

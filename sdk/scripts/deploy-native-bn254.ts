@@ -1,5 +1,6 @@
 import "./bootstrap-env.js";
 import { runScript } from "./tx-helpers.js";
+import { execFileSync } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -26,6 +27,7 @@ import {
   type SnarkJsVerificationKey,
   verificationKeyToScVal,
 } from "../src/bn254.js";
+import { fetchHorizonJson } from "./stellar-fetch.js";
 
 type OperationName = "Register" | "Mint" | "Transfer" | "Deposit" | "Withdraw";
 
@@ -82,6 +84,7 @@ async function main(): Promise<void> {
 
   console.log(`GROTH16_VERIFIER_CONTRACT_ID=${verifierId}`);
   console.log(`ENCRYPTED_TOKEN_CONTRACT_ID=${tokenId}`);
+  writeContractIdsToEnv(verifierId, tokenId);
 
   await uploadVerificationKey(tokenId, "Register", path.join(VK_BUILD_DIR, "register", "verification_key.json"));
 
@@ -215,11 +218,14 @@ async function getSourceAccount(): Promise<Account> {
   try {
     return await server.getAccount(admin.publicKey());
   } catch (error) {
-    const response = await fetch(`${HORIZON_URL}/accounts/${admin.publicKey()}`);
-    if (!response.ok) {
+    let account: { account_id: string; sequence: string };
+    try {
+      account = await fetchHorizonJson(
+        `${HORIZON_URL}/accounts/${admin.publicKey()}`,
+      ) as { account_id: string; sequence: string };
+    } catch {
       throw error;
     }
-    const account = await response.json() as { account_id: string; sequence: string };
     return new Account(account.account_id, account.sequence);
   }
 }
@@ -262,6 +268,29 @@ function readJson<T>(filePath: string): T {
     throw new Error(`Missing file: ${filePath}`);
   }
   return JSON.parse(fs.readFileSync(filePath, "utf8")) as T;
+}
+
+function writeContractIdsToEnv(verifierId: string, tokenId: string): void {
+  const envPath = path.join(projectRoot, ".env");
+  let contents = fs.existsSync(envPath) ? fs.readFileSync(envPath, "utf8") : "";
+
+  contents = setEnvValue(contents, "GROTH16_VERIFIER_CONTRACT_ID", verifierId);
+  contents = setEnvValue(contents, "ENCRYPTED_TOKEN_CONTRACT_ID", tokenId);
+
+  fs.writeFileSync(envPath, contents);
+  console.log(`Updated ${envPath}`);
+}
+
+function setEnvValue(contents: string, key: string, value: string): string {
+  const line = `${key}=${value}`;
+  const pattern = new RegExp(`^${key}=.*$`, "m");
+
+  if (pattern.test(contents)) {
+    return contents.replace(pattern, line);
+  }
+
+  const suffix = contents.endsWith("\n") || contents.length === 0 ? "" : "\n";
+  return `${contents}${suffix}${line}\n`;
 }
 
 runScript(main);

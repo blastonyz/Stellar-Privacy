@@ -14,8 +14,9 @@ endif
 export $(NODE_ENV_FLAGS)
 
 .PHONY: help install-sdk circuits circuits-phase2 circuits-clean \
-        build-contracts test-contracts deploy upload-vks upload-vk-transfer \
-        proof-register proof-register-receptor proof-transfer check-register check-receptor
+        build-contracts test-contracts generate-bindings deploy upload-vks upload-vk-transfer \
+        proof-register proof-register-receptor proof-transfer check-register check-receptor \
+        decrypt-balance decrypt-receptor fetch-events
 
 help:
 	@echo "Encrypted Stellar — common targets"
@@ -25,6 +26,7 @@ help:
 	@echo "  make circuits-phase2      compile + Groth16 setup (needs PTAU=...)"
 	@echo "  make build-contracts      release WASM + stellar optimize"
 	@echo "  make test-contracts       cargo test encrypted_token"
+	@echo "  make generate-bindings    generate TypeScript bindings in sdk/bindings/"
 	@echo "  make deploy               deploy verifier + token + Register VK"
 	@echo "  make upload-vks           upload all VKs to token contract"
 	@echo "  make upload-vk-transfer   upload Transfer VK only"
@@ -33,6 +35,9 @@ help:
 	@echo "  make proof-transfer       private transfer owner -> TEST_RECEPTOR_ADDRESS"
 	@echo "  make check-register       simulate is_registered for owner"
 	@echo "  make check-receptor       simulate is_registered for TEST_RECEPTOR_ADDRESS"
+	@echo "  make decrypt-balance      fetch + decrypt owner encrypted balance"
+	@echo "  make decrypt-receptor     fetch + decrypt receptor encrypted balance"
+	@echo "  make fetch-events         fetch recent contract events"
 
 install-sdk:
 	cd $(SDK) && npm install
@@ -56,6 +61,9 @@ build-contracts:
 test-contracts:
 	cargo test -p encrypted_token
 
+generate-bindings:
+	bash scripts/generate-bindings.sh
+
 deploy:
 	cd $(SDK) && npm run deploy:native-bn254
 
@@ -78,4 +86,13 @@ check-register:
 	cd $(SDK) && npx tsx scripts/check-registration.ts owner
 
 check-receptor:
-	cd $(SDK) && npx tsx scripts/check-registration.ts receptor
+	cd $(SDK) && npm run check:receptor
+
+decrypt-balance:
+	cd $(SDK) && npm run decrypt:balance
+
+decrypt-receptor:
+	cd $(SDK) && npm run decrypt:receptor
+
+fetch-events:
+	cd $(SDK) && npm run events:fetch

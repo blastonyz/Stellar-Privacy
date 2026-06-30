@@ -42,6 +42,30 @@ export interface EncryptedBalance {
   c2: JubPoint;   // v * G + r * PK
 }
 
+export function nativeToJubPoint(value: unknown): JubPoint {
+  const point = value as { x: Buffer | Uint8Array; y: Buffer | Uint8Array };
+  return {
+    x: fieldBytesToBigInt(point.x),
+    y: fieldBytesToBigInt(point.y),
+  };
+}
+
+export function nativeToEncryptedBalance(value: unknown): EncryptedBalance {
+  const balance = value as {
+    c1: { x: Buffer | Uint8Array; y: Buffer | Uint8Array };
+    c2: { x: Buffer | Uint8Array; y: Buffer | Uint8Array };
+  };
+
+  return {
+    c1: nativeToJubPoint(balance.c1),
+    c2: nativeToJubPoint(balance.c2),
+  };
+}
+
+function fieldBytesToBigInt(value: Buffer | Uint8Array): bigint {
+  return BigInt(`0x${Buffer.from(value).toString("hex")}`);
+}
+
 export interface Groth16Proof {
   a: [string, string];          // G1
   b: [[string, string], [string, string]];  // G2
@@ -206,16 +230,17 @@ async function babyStepGiantStep(
   const F = babyjub.F;
   const sqrtMax = BigInt(Math.ceil(Math.sqrt(Number(maxV))));
 
-  // Build baby-step table: { hash(i*G) → i }
+  // Baby steps: map i * G -> i, starting at the identity (0 * G).
   const table = new Map<string, bigint>();
-  let baby = babyjub.Base8;
+  let baby = [F.zero, F.one];
   for (let i = 0n; i <= sqrtMax; i++) {
     const key = `${F.toObject(baby[0])},${F.toObject(baby[1])}`;
-    table.set(key, i);
+    if (!table.has(key)) {
+      table.set(key, i);
+    }
     baby = babyjub.addPoint(baby, babyjub.Base8);
   }
 
-  // Giant step: target - j * sqrtMax * G
   const giantStep = babyjub.mulPointEscalar(babyjub.Base8, sqrtMax);
   const negGiantStep = [F.neg(giantStep[0]), giantStep[1]];
 

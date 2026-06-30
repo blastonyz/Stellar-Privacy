@@ -3,6 +3,7 @@
 
 use soroban_sdk::{contract, contracterror, contractimpl, contracttype, Address, BytesN, Env, Vec};
 
+mod events;
 mod verifier_contract;
 
 #[cfg(test)]
@@ -147,7 +148,8 @@ impl EncryptedToken {
     // Store the Groth16 verification key for a given operation.
     pub fn set_vk(env: Env, op: OpType, vk: VerificationKey) {
         Self::require_admin(&env);
-        env.storage().persistent().set(&DataKey::Vk(op), &vk);
+        env.storage().persistent().set(&DataKey::Vk(op.clone()), &vk);
+        events::emit_vk_set(&env, op);
     }
 
     // ─── Registration ─────────────────────────────────────────
@@ -178,6 +180,7 @@ impl EncryptedToken {
         let zero_balance = EncryptedBalance { c1: identity.clone(), c2: identity };
         env.storage().persistent().set(&DataKey::Balance(user.clone()), &zero_balance);
 
+        events::emit_registered(&env, user, user_pk);
         Ok(())
     }
 
@@ -198,6 +201,7 @@ impl EncryptedToken {
         Self::verify_proof(&env, &vk, &proof, &pub_signals)?;
 
         env.storage().persistent().set(&DataKey::Balance(to.clone()), &new_balance);
+        events::emit_private_mint(&env, to);
         Ok(())
     }
 
@@ -223,6 +227,13 @@ impl EncryptedToken {
         env.storage().persistent().set(&DataKey::Balance(from.clone()), &new_from_balance);
         env.storage().persistent().set(&DataKey::Balance(to.clone()),   &new_to_balance);
 
+        events::emit_private_transfer(
+            &env,
+            from,
+            to,
+            pub_signals.get(1).ok_or(Error::BadPublicSignals)?,
+            pub_signals.get(3).ok_or(Error::BadPublicSignals)?,
+        );
         Ok(())
     }
 
