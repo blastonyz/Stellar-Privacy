@@ -6,6 +6,10 @@ import { CounterpartySetup } from "@/components/shield/CounterpartySetup";
 import { OnboardingPanel } from "@/components/shield/OnboardingPanel";
 import { ViewKeyPanel } from "@/components/shield/ViewKeyPanel";
 import { ASSET_OPTIONS } from "@/lib/mock-data";
+import { decryptBalanceLocal } from "@/lib/decrypt";
+import { loadViewKey, saveViewKey } from "@/lib/keys/view-key-store";
+import { shieldApi } from "@/lib/api/shield-client";
+import { fetchEncryptedBalance } from "@/lib/shield-protocol";
 import { stellarConfig } from "@/lib/stellar";
 import { shortAddress } from "@/lib/utils";
 import { useShield } from "@/providers/ShieldProvider";
@@ -13,12 +17,11 @@ import { LoaderCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 
 export function ConfidentialTransferForm() {
-  const { wallet, account, status, transfer } = useShield();
+  const { wallet, account, status, transfer, decryptLocalBalance } = useShield();
   const [receiver, setReceiver] = useState(stellarConfig.demoReceptorAddress);
   const [asset, setAsset] = useState<string>(ASSET_OPTIONS[0]);
   const [amount, setAmount] = useState("");
-  const [fromBalance, setFromBalance] = useState("100");
-  const [toBalance, setToBalance] = useState("0");
+  const [receiverBalance, setReceiverBalance] = useState<string | null>(null);
   const [isGeneratingProof, setIsGeneratingProof] = useState(false);
 
   const canTransfer =
@@ -33,6 +36,52 @@ export function ConfidentialTransferForm() {
     }
   }, [receiver]);
 
+  useEffect(() => {
+    if (wallet.address && account.encryptedBalance && !account.decryptedBalance) {
+      void decryptLocalBalance();
+    }
+  }, [wallet.address, account.encryptedBalance, account.decryptedBalance, decryptLocalBalance]);
+
+  useEffect(() => {
+    if (!wallet.address || !receiver) {
+      setReceiverBalance(null);
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      let receiverSk = loadViewKey(receiver);
+      if (!receiverSk) {
+        try {
+          const synced = await shieldApi.counterpartyViewKey(receiver);
+          if (synced.sk) {
+            saveViewKey(receiver, synced.sk);
+            receiverSk = synced.sk;
+          }
+        } catch {
+          /* no local demo key */
+        }
+      }
+      if (!receiverSk) {
+        if (!cancelled) setReceiverBalance(null);
+        return;
+      }
+
+      const encrypted = await fetchEncryptedBalance(wallet.address!, receiver);
+      if (cancelled) return;
+      if (!encrypted) {
+        setReceiverBalance("0");
+        return;
+      }
+      const plain = await decryptBalanceLocal(encrypted, receiverSk);
+      if (!cancelled) setReceiverBalance(plain);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [wallet.address, receiver]);
+
   const handleSubmit = async () => {
     if (!wallet.address) return;
     setIsGeneratingProof(true);
@@ -40,8 +89,8 @@ export function ConfidentialTransferForm() {
       await transfer({
         to: receiver,
         amount,
-        fromBalance,
-        toBalance,
+        fromBalance: account.decryptedBalance ?? undefined,
+        toBalance: receiverBalance ?? undefined,
       });
     } catch (error) {
       console.error(error);
@@ -108,7 +157,7 @@ export function ConfidentialTransferForm() {
           </label>
 
           <div className="grid gap-4 md:grid-cols-3">
-            <label className="block space-y-2">
+            <label className="block space-y-2 md:col-span-1">
               <span className="text-xs uppercase tracking-wide text-slate-500">Amount</span>
               <input
                 type="number"
@@ -118,30 +167,28 @@ export function ConfidentialTransferForm() {
                 className="w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2.5 text-sm text-white"
               />
             </label>
-            <label className="block space-y-2">
-              <span className="text-xs uppercase tracking-wide text-slate-500">Sender Old Balance</span>
-              <input
-                type="number"
-                min="0"
-                value={fromBalance}
-                onChange={(event) => setFromBalance(event.target.value)}
-                className="w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2.5 text-sm text-white"
-              />
-            </label>
-            <label className="block space-y-2">
-              <span className="text-xs uppercase tracking-wide text-slate-500">Receiver Old Balance</span>
-              <input
-                type="number"
-                min="0"
-                value={toBalance}
-                onChange={(event) => setToBalance(event.target.value)}
-                className="w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2.5 text-sm text-white"
-              />
-            </label>
+            <div className="rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2.5 md:col-span-1">
+              <p className="text-xs uppercase tracking-wide text-slate-500">Your shielded balance</p>
+              <p className="mt-1 text-sm font-medium text-white">
+                {account.decryptedBalance != null ? `${account.decryptedBalance} units` : "Decrypting…"}
+              </p>
+              <p className="mt-0.5 text-xs text-slate-500">Read from chain with your view key</p>
+            </div>
+            <div className="rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2.5 md:col-span-1">
+              <p className="text-xs uppercase tracking-wide text-slate-500">Receiver balance</p>
+              <p className="mt-1 text-sm font-medium text-white">
+                {receiverBalance != null
+                  ? `${receiverBalance} units`
+                  : loadViewKey(receiver)
+                    ? "Loading…"
+                    : "Unknown (import receiver view key if non-zero)"}
+              </p>
+            </div>
           </div>
 
           <span className="flex items-start gap-2 text-xs text-slate-500">
-            Amount will be homomorphically encrypted. Never exposed on-chain.
+            Amount will be homomorphically encrypted. Never exposed on-chain. Proof balances are
+            derived from on-chain ciphertext — not hardcoded defaults.
           </span>
 
           {(isGeneratingProof || status?.includes("proof")) && (
@@ -165,12 +212,7 @@ export function ConfidentialTransferForm() {
           <Button
             size="lg"
             className="w-full"
-            disabled={
-              !canTransfer ||
-              !receiver ||
-              !amount ||
-              isGeneratingProof
-            }
+            disabled={!canTransfer || !receiver || !amount || isGeneratingProof}
             onClick={() => void handleSubmit()}
           >
             {isGeneratingProof ? "Generating Proof..." : "Generate Proof & Sign with Freighter"}

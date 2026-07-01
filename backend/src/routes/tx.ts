@@ -1,11 +1,13 @@
 import { Router, type Request, type Response, type NextFunction } from "express";
 import { config } from "../config.js";
+import { resolveReceiverViewKey } from "../lib/receptor-keys.js";
 import {
   buildDepositTransaction,
   buildMintTransaction,
   buildRegisterTransaction,
   buildTransferTransaction,
   proveFromWitness,
+  registerCounterpartyWithSecret,
 } from "../services/protocol.js";
 
 export const txRouter = Router();
@@ -18,13 +20,10 @@ function asyncHandler(
   };
 }
 
-function requireAdmin(req: Request): string {
+function mintAdminAddress(req: Request): string {
   const admin = String(req.headers["x-admin-address"] ?? req.body?.admin ?? "");
-  if (!config.adminPublicKey) {
-    throw new Error("ADMIN_PUBLIC_KEY is not configured on the server");
-  }
-  if (admin !== config.adminPublicKey) {
-    throw new Error("Unauthorized: admin wallet required for mint");
+  if (!admin) {
+    throw new Error("Missing admin address — connect Freighter and retry");
   }
   return admin;
 }
@@ -43,6 +42,47 @@ txRouter.post(
 );
 
 txRouter.post(
+  "/register-counterparty",
+  asyncHandler(async (req, res) => {
+    if (!config.allowCounterpartyRegister) {
+      res.status(403).json({
+        error:
+          "Counterparty registration via secret key is disabled. Set ALLOW_COUNTERPARTY_REGISTER=true or use Freighter.",
+      });
+      return;
+    }
+
+    const { secretKey } = req.body as { secretKey?: string };
+    if (!secretKey?.trim()) {
+      res.status(400).json({ error: "Missing secretKey" });
+      return;
+    }
+
+    const result = await registerCounterpartyWithSecret(secretKey);
+    res.json(result);
+  }),
+);
+
+txRouter.post(
+  "/counterparty-view-key",
+  asyncHandler(async (req, res) => {
+    const { address } = req.body as { address?: string };
+    if (!address?.trim()) {
+      res.status(400).json({ error: "Missing address" });
+      return;
+    }
+    const sk = resolveReceiverViewKey(address.trim());
+    if (!sk) {
+      res.status(404).json({
+        error: "No local demo view key for this address (run make proof-register-receptor)",
+      });
+      return;
+    }
+    res.json({ address: address.trim(), sk });
+  }),
+);
+
+txRouter.post(
   "/transfer",
   asyncHandler(async (req, res) => {
     const body = req.body as {
@@ -50,6 +90,7 @@ txRouter.post(
       to?: string;
       amount?: string;
       babyJubSk?: string;
+      toBabyJubSk?: string;
       fromBalance?: string;
       toBalance?: string;
     };
@@ -65,7 +106,7 @@ txRouter.post(
 txRouter.post(
   "/mint",
   asyncHandler(async (req, res) => {
-    const admin = requireAdmin(req);
+    const admin = mintAdminAddress(req);
     const { to, amount } = req.body as { to?: string; amount?: string };
     if (!to || !amount) {
       res.status(400).json({ error: "Missing to or amount" });

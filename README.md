@@ -94,8 +94,10 @@ Two Soroban contracts (under the **64 KB WASM** limit):
 | Method | When to use | Where secrets live |
 |--------|-------------|-------------------|
 | **A. Freighter UI (recommended)** | Real user / counterparty flow | View key → browser `localStorage`; Stellar auth → Freighter |
-| **B. Makefile / CLI** | Automate demo receptor | `RECEPTOR_SECRET_KEY` or `SECRET_KEY` in **root `.env` only** (gitignored) → `make proof-register-receptor` |
-| **C. Backend env (future)** | Optional admin endpoint | Same as B — server-side `.env`, never exposed to browser |
+| **B. Makefile / CLI** | Automate demo receptor | `RECEPTOR_SECRET_KEY` in **root `.env` only** → `make proof-register-receptor` |
+| **C. UI + backend (demo shortcut)** | Skip Freighter wallet switching | Paste receiver **secret** on Transfer page → `POST /tx/register-counterparty` signs server-side; view key saved in browser for receiver address |
+
+Disable option C in production: `ALLOW_COUNTERPARTY_REGISTER=false` in backend env.
 
 ### Never do this
 
@@ -228,7 +230,8 @@ CLI alternative for receiver: `make proof-register-receptor` with `RECEPTOR_SECR
 | Route | Purpose |
 |-------|---------|
 | `GET /health` | RPC, contract ID, `features.deposit` probe |
-| `POST /tx/register` | Groth16 register proof + unsigned XDR |
+| `POST /tx/register` | Groth16 register proof + unsigned XDR (Freighter sign) |
+| `POST /tx/register-counterparty` | Demo: `{ secretKey }` → prove, sign, submit register server-side |
 | `POST /tx/transfer` | Transfer proof (needs `babyJubSk` for witness) |
 | `POST /tx/deposit` | Deposit proof |
 | `POST /tx/mint` | Mint proof (admin header) |

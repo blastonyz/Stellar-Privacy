@@ -6,7 +6,6 @@ import { CorporateBalances } from "@/components/shield/CorporateBalances";
 import { DashboardOverview } from "@/components/shield/DashboardOverview";
 import { DepositForm } from "@/components/shield/DepositForm";
 import { MintForm } from "@/components/shield/MintForm";
-import { ProofStatusWidget } from "@/components/shield/ProofStatusWidget";
 import { Sidebar } from "@/components/shield/Sidebar";
 import { WalletStatusBanner } from "@/components/wallet/ConnectWalletButton";
 import type { NavSection } from "@/types";
@@ -44,8 +43,6 @@ export function ShieldApp() {
           {activeSection === "compliance" && <ComplianceAudits />}
         </main>
       </div>
-
-      <ProofStatusWidget />
     </div>
   );
 }

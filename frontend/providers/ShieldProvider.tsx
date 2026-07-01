@@ -29,13 +29,13 @@ type ShieldContextValue = {
   status: string | null;
   refresh: () => Promise<void>;
   register: () => Promise<void>;
+  registerCounterparty: (secretKey: string) => Promise<{
+    address: string;
+    alreadyRegistered: boolean;
+    txHash: string | null;
+  }>;
   importViewKey: (raw: string) => Promise<boolean>;
-  transfer: (input: {
-    to: string;
-    amount: string;
-    fromBalance?: string;
-    toBalance?: string;
-  }) => Promise<string>;
+  transfer: (input: { to: string; amount: string; fromBalance?: string; toBalance?: string }) => Promise<string>;
   deposit: (amount: string) => Promise<string>;
   mint: (to: string, amount: string) => Promise<string>;
   decryptLocalBalance: () => Promise<string | null>;
@@ -133,6 +133,36 @@ export function ShieldProvider({ children }: { children: React.ReactNode }) {
     }
   }, [refresh, wallet]);
 
+  const registerCounterparty = useCallback(async (secretKey: string) => {
+    setStatus("Registering counterparty via Shield backend (testnet demo)...");
+    try {
+      const result = await shieldApi.registerCounterparty(secretKey);
+      if (result.babyJub?.sk) {
+        saveViewKey(result.address, result.babyJub.sk);
+      }
+      if (result.alreadyRegistered) {
+        setStatus(
+          result.babyJub?.sk
+            ? `${result.address} is already registered — counterparty view key saved in this browser.`
+            : `${result.address} is already registered on-chain.`,
+        );
+      } else {
+        setStatus(
+          `Counterparty registered. Tx: ${result.txHash}. View key saved for ${result.address.slice(0, 8)}…`,
+        );
+      }
+      await refresh();
+      return {
+        address: result.address,
+        alreadyRegistered: result.alreadyRegistered,
+        txHash: result.txHash,
+      };
+    } catch (error) {
+      setStatus(formatShieldError(error));
+      throw error;
+    }
+  }, [refresh]);
+
   const importViewKey = useCallback(
     async (raw: string) => {
       if (!wallet.address) {
@@ -182,6 +212,7 @@ export function ShieldProvider({ children }: { children: React.ReactNode }) {
         setStatus(VIEW_KEY_REQUIRED_MESSAGE);
         return "";
       }
+      const toBabyJubSk = loadViewKey(input.to) ?? undefined;
 
       setStatus("Generating transfer proof via Shield backend...");
       try {
@@ -190,6 +221,7 @@ export function ShieldProvider({ children }: { children: React.ReactNode }) {
           to: input.to,
           amount: input.amount,
           babyJubSk,
+          toBabyJubSk,
           fromBalance: input.fromBalance,
           toBalance: input.toBalance,
         });
@@ -299,6 +331,7 @@ export function ShieldProvider({ children }: { children: React.ReactNode }) {
       status,
       refresh,
       register,
+      registerCounterparty,
       importViewKey,
       transfer,
       deposit,
@@ -315,6 +348,7 @@ export function ShieldProvider({ children }: { children: React.ReactNode }) {
       status,
       refresh,
       register,
+      registerCounterparty,
       importViewKey,
       transfer,
       deposit,

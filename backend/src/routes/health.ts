@@ -18,6 +18,7 @@ healthRouter.get("/health", async (req, res) => {
     rapidsnarkBin: config.rapidsnarkBin ?? null,
     rpc: config.rpcUrl,
     contractId: config.contractId || null,
+    allowCounterpartyRegister: config.allowCounterpartyRegister,
     features,
   });
 });

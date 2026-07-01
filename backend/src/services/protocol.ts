@@ -1,18 +1,19 @@
 import fs from "node:fs";
-import { Address, nativeToScVal } from "@stellar/stellar-sdk";
+import { Address, Keypair, nativeToScVal } from "@stellar/stellar-sdk";
 import {
   buildDepositWitness,
   buildMintWitness,
   buildTransferWitness,
+  decrypt,
   encrypt,
   generateKeypair,
-  pkFromSecret,
   proveDeposit,
   proveMint,
   proveRegister,
   proveTransfer,
   type JubPoint,
 } from "../lib/client.js";
+import { resolveReceiverViewKey, readCounterpartyRegisterState } from "../lib/receptor-keys.js";
 import {
   encryptedBalanceToScVal,
   jubJubPointToScVal,
@@ -26,7 +27,11 @@ import { assertContractConfigured, circuitPath, config } from "../config.js";
 import {
   buildUnsignedTx,
   fetchEncryptedBalance,
+  fetchEncryptedBalanceOptional,
+  fetchIsRegistered,
   fetchUserPk,
+  isAlreadyRegisteredError,
+  signAndSubmitFromSecret,
   tokenContract,
 } from "./stellar.js";
 
@@ -35,6 +40,32 @@ function assertArtifacts(circuit: string, wasmPath: string, zkeyPath: string): v
     if (!fs.existsSync(filePath)) {
       throw new Error(`Missing circuit artifact for ${circuit}: ${filePath}`);
     }
+  }
+}
+
+async function decryptSenderBalance(
+  balance: Awaited<ReturnType<typeof fetchEncryptedBalanceOptional>>,
+  sk: bigint,
+): Promise<bigint> {
+  try {
+    return await decrypt(balance!, sk);
+  } catch {
+    throw new Error(
+      "Could not decrypt sender balance — your view key may not match on-chain registration. Re-import your view key backup.",
+    );
+  }
+}
+
+async function decryptReceiverBalance(
+  balance: Awaited<ReturnType<typeof fetchEncryptedBalanceOptional>>,
+  sk: bigint,
+): Promise<bigint> {
+  try {
+    return await decrypt(balance!, sk);
+  } catch {
+    throw new Error(
+      "Could not decrypt receiver balance — import the counterparty view key or set receiver old balance.",
+    );
   }
 }
 
@@ -81,11 +112,71 @@ export async function buildRegisterTransaction(address: string) {
   };
 }
 
+/** Demo flow: prove + sign + submit register for a counterparty using their Stellar secret (testnet). */
+export async function registerCounterpartyWithSecret(secretKey: string) {
+  assertContractConfigured();
+  const trimmed = secretKey.trim();
+  if (!trimmed.startsWith("S")) {
+    throw new Error("Invalid Stellar secret key format");
+  }
+
+  let keypair: ReturnType<typeof Keypair.fromSecret>;
+  try {
+    keypair = Keypair.fromSecret(trimmed);
+  } catch {
+    throw new Error("Invalid Stellar secret key");
+  }
+
+  const address = keypair.publicKey();
+  const caller = config.adminPublicKey || address;
+  const alreadyRegistered = await fetchIsRegistered(caller, address);
+  if (alreadyRegistered) {
+    const state = readCounterpartyRegisterState(address);
+    return {
+      address,
+      alreadyRegistered: true as const,
+      txHash: null,
+      babyJub: state
+        ? {
+            sk: state.sk,
+            pk: state.pk
+              ? { x: state.pk.x, y: state.pk.y }
+              : { x: "0", y: "0" },
+            pkHash: state.pkHash ?? "",
+          }
+        : null,
+    };
+  }
+
+  const payload = await buildRegisterTransaction(address);
+  try {
+    const { hash } = await signAndSubmitFromSecret(trimmed, payload.unsignedXdr);
+    return {
+      address,
+      alreadyRegistered: false as const,
+      txHash: hash,
+      babyJub: payload.babyJub,
+      publicSignals: payload.publicSignals,
+    };
+  } catch (error) {
+    if (isAlreadyRegisteredError(error)) {
+      return {
+        address,
+        alreadyRegistered: true as const,
+        txHash: null,
+        babyJub: null,
+      };
+    }
+    throw error;
+  }
+}
+
 export async function buildTransferTransaction(input: {
   from: string;
   to: string;
   amount: string;
   babyJubSk: string;
+  toBabyJubSk?: string;
   fromBalance?: string;
   toBalance?: string;
 }) {
@@ -97,17 +188,43 @@ export async function buildTransferTransaction(input: {
 
   const skFrom = BigInt(input.babyJubSk);
   const amount = BigInt(input.amount);
-  const vFromOld = BigInt(input.fromBalance ?? "100");
-  const vToOld = BigInt(input.toBalance ?? "0");
+
+  const [toPk, fromBalanceEnc, toBalanceOnChain] = await Promise.all([
+    fetchUserPk(input.from, input.to),
+    fetchEncryptedBalanceOptional(input.from, input.from),
+    fetchEncryptedBalanceOptional(input.from, input.to),
+  ]);
+
+  if (!fromBalanceEnc) {
+    throw new Error("Sender has no encrypted balance on-chain — mint or deposit first");
+  }
+
+  const toBalanceEnc =
+    toBalanceOnChain ?? (await encrypt(0n, toPk, 0n));
+
+  const vFromOld =
+    input.fromBalance !== undefined
+      ? BigInt(input.fromBalance)
+      : await decryptSenderBalance(fromBalanceEnc, skFrom);
+
+  const resolvedToSk = resolveReceiverViewKey(input.to, input.toBabyJubSk);
+
+  let vToOld: bigint;
+  if (input.toBalance !== undefined) {
+    vToOld = BigInt(input.toBalance);
+  } else if (resolvedToSk) {
+    vToOld = await decryptReceiverBalance(toBalanceEnc, BigInt(resolvedToSk));
+  } else if (!toBalanceOnChain) {
+    vToOld = 0n;
+  } else {
+    throw new Error(
+      "Receiver has an on-chain balance — import their view key in this browser, set receiver old balance, or register via make proof-register-receptor",
+    );
+  }
 
   if (vFromOld < amount) {
     throw new Error(`Insufficient sender balance (${vFromOld} < ${amount})`);
   }
-
-  const fromPk = await pkFromSecret(skFrom);
-  const fromBalanceEnc = await encrypt(vFromOld, fromPk);
-  const toPk = await fetchUserPk(input.from, input.to);
-  const toBalanceEnc = await encrypt(vToOld, toPk, 0n);
 
   const witness = await buildTransferWitness({
     sk_from: skFrom,

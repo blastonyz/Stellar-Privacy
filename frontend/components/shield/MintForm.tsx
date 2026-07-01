@@ -14,8 +14,11 @@ export function MintForm() {
   const [amount, setAmount] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const adminKey = process.env.NEXT_PUBLIC_ADMIN_PUBLIC_KEY ?? "";
-  const isAdmin = Boolean(wallet.address && adminKey && wallet.address === adminKey);
+  const canMint =
+    Boolean(wallet.address) &&
+    Boolean(recipient.trim()) &&
+    Boolean(amount) &&
+    !wallet.networkMismatch;
 
   const handleSubmit = async () => {
     if (!wallet.address) return;
@@ -31,22 +34,13 @@ export function MintForm() {
     }
   };
 
-  if (!adminKey) {
-    return (
-      <div className="rounded-lg border border-slate-800 bg-slate-950/60 px-4 py-6 text-sm text-slate-400">
-        Admin mint is disabled. Set <code className="text-cyan-400">NEXT_PUBLIC_ADMIN_PUBLIC_KEY</code>{" "}
-        in <code className="text-cyan-400">frontend/.env.local</code>.
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight text-white">Enterprise Mint</h1>
         <p className="mt-1 text-sm text-slate-400">
-          Admin-only standalone supply injection to a registered recipient. Circulation remains
-          encrypted on-chain.
+          Admin-only standalone supply injection to a registered recipient. The connected Freighter
+          wallet must be the contract admin (deploy signer). Circulation remains encrypted on-chain.
         </p>
       </div>
 
@@ -61,25 +55,18 @@ export function MintForm() {
           {!wallet.address && (
             <div className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
               <ShieldAlert className="h-4 w-4 shrink-0" />
-              Connect the admin Freighter wallet.
-            </div>
-          )}
-
-          {wallet.address && !isAdmin && (
-            <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-200">
-              Connected wallet {shortAddress(wallet.address)} is not the configured admin (
-              {shortAddress(adminKey)}).
+              Connect the contract admin Freighter wallet to mint.
             </div>
           )}
 
           <div>
             <label className="mb-1.5 block text-xs uppercase tracking-wide text-slate-500">
-              Admin signer
+              Admin signer (connected wallet)
             </label>
             <input
               readOnly
-              value={wallet.address ? shortAddress(wallet.address) : "Not connected"}
-              className="w-full rounded-lg border border-slate-700 bg-slate-900/50 px-3 py-2.5 text-sm text-slate-300"
+              value={wallet.address ?? "Not connected"}
+              className="w-full rounded-lg border border-slate-700 bg-slate-900/50 px-3 py-2.5 font-mono text-sm text-slate-300"
             />
           </div>
 
@@ -91,8 +78,10 @@ export function MintForm() {
               value={recipient}
               onChange={(e) => setRecipient(e.target.value)}
               placeholder="G..."
-              className="w-full rounded-lg border border-slate-700 bg-slate-900/80 px-3 py-2.5 font-mono text-sm text-white placeholder:text-slate-600 focus:border-cyan-500/50 focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
+              disabled={!wallet.address}
+              className="w-full rounded-lg border border-slate-700 bg-slate-900/80 px-3 py-2.5 font-mono text-sm text-white placeholder:text-slate-600 focus:border-cyan-500/50 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 disabled:opacity-50"
             />
+            <p className="mt-1.5 text-xs text-slate-500">Recipient must already be registered on the token contract.</p>
           </div>
 
           <div>
@@ -105,7 +94,8 @@ export function MintForm() {
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               placeholder="1000"
-              className="w-full rounded-lg border border-slate-700 bg-slate-900/80 px-3 py-2.5 text-sm text-white placeholder:text-slate-600 focus:border-cyan-500/50 focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
+              disabled={!wallet.address}
+              className="w-full rounded-lg border border-slate-700 bg-slate-900/80 px-3 py-2.5 text-sm text-white placeholder:text-slate-600 focus:border-cyan-500/50 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 disabled:opacity-50"
             />
           </div>
 
@@ -121,7 +111,7 @@ export function MintForm() {
 
           <Button
             type="button"
-            disabled={!isAdmin || !recipient || !amount || isProcessing}
+            disabled={!canMint || isProcessing}
             onClick={() => void handleSubmit()}
             className="w-full"
           >

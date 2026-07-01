@@ -40,6 +40,13 @@ export type HealthResponse = {
   features?: { deposit: boolean };
 };
 
+export type RegisterCounterpartyResponse = {
+  address: string;
+  alreadyRegistered: boolean;
+  txHash: string | null;
+  babyJub: { sk: string; pk: { x: string; y: string }; pkHash: string } | null;
+};
+
 export const shieldApi = {
   config: shieldApiConfig,
 
@@ -54,11 +61,18 @@ export const shieldApi = {
   register: (address: string) =>
     post<RegisterResponse>("/tx/register", { address }),
 
+  registerCounterparty: (secretKey: string) =>
+    post<RegisterCounterpartyResponse>("/tx/register-counterparty", { secretKey }),
+
+  counterpartyViewKey: (address: string) =>
+    post<{ address: string; sk: string }>("/tx/counterparty-view-key", { address }),
+
   transfer: (input: {
     from: string;
     to: string;
     amount: string;
     babyJubSk: string;
+    toBabyJubSk?: string;
     fromBalance?: string;
     toBalance?: string;
   }) => post<TxBuildResponse>("/tx/transfer", input),

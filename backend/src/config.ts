@@ -41,6 +41,8 @@ export const config = {
   rapidsnarkBin: process.env.RAPIDSNARK_BIN || undefined,
   adminPublicKey: resolveAdminPublicKey(),
   corsOrigin: process.env.CORS_ORIGIN ?? "*",
+  /** Demo: POST /tx/register-counterparty accepts a Stellar secret to sign register server-side. */
+  allowCounterpartyRegister: process.env.ALLOW_COUNTERPARTY_REGISTER !== "false",
 };
 
 export function assertContractConfigured(): void {

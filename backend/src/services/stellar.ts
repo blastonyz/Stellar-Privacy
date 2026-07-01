@@ -1,6 +1,7 @@
 import {
   Address,
   Contract,
+  Keypair,
   rpc,
   TransactionBuilder,
   BASE_FEE,
@@ -65,6 +66,38 @@ export async function buildUnsignedTx(publicKey: string, operation: xdr.Operatio
   return rpc.assembleTransaction(baseTx, simulation).build().toXDR();
 }
 
+export function isAlreadyRegisteredError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /AlreadyRegistered|Error\(Contract, #3\)|error #3/i.test(message);
+}
+
+export async function signAndSubmitFromSecret(
+  secretKey: string,
+  unsignedXdr: string,
+): Promise<{ hash: string }> {
+  const keypair = Keypair.fromSecret(secretKey);
+  const tx = TransactionBuilder.fromXDR(unsignedXdr, config.networkPassphrase);
+  tx.sign(keypair);
+
+  const sent = await server.sendTransaction(tx);
+  if (sent.status === "ERROR") {
+    throw new Error(`Transaction failed: ${JSON.stringify(sent.errorResult)}`);
+  }
+
+  for (let attempt = 0; attempt < 60; attempt += 1) {
+    const result = await server.getTransaction(sent.hash);
+    if (result.status === "SUCCESS") {
+      return { hash: sent.hash };
+    }
+    if (result.status === "FAILED") {
+      throw new Error(`Transaction failed on-chain: ${sent.hash}`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+  }
+
+  throw new Error(`Timed out waiting for transaction ${sent.hash}`);
+}
+
 export async function fetchIsRegistered(caller: string, user: string): Promise<boolean> {
   const result = await simulateView(caller, "is_registered", [Address.fromString(user).toScVal()]);
   return result === true;
@@ -80,9 +113,20 @@ export async function fetchUserPk(caller: string, user: string): Promise<JubPoin
 }
 
 export async function fetchEncryptedBalance(caller: string, user: string): Promise<EncryptedBalance> {
-  const balance = await simulateView(caller, "get_balance", [Address.fromString(user).toScVal()]);
+  const balance = await fetchEncryptedBalanceOptional(caller, user);
   if (!balance) {
     throw new Error(`No encrypted balance for ${user}`);
+  }
+  return balance;
+}
+
+export async function fetchEncryptedBalanceOptional(
+  caller: string,
+  user: string,
+): Promise<EncryptedBalance | null> {
+  const balance = await simulateView(caller, "get_balance", [Address.fromString(user).toScVal()]);
+  if (!balance) {
+    return null;
   }
   return nativeToEncryptedBalance(balance);
 }
