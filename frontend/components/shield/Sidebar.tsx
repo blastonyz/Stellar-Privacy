@@ -13,6 +13,7 @@ import {
   Shield,
   Wallet,
 } from "lucide-react";
+import Link from "next/link";
 import { ConnectWalletButton } from "@/components/wallet/ConnectWalletButton";
 
 const navItems: { id: NavSection; label: string; icon: typeof LayoutDashboard }[] = [
@@ -36,7 +37,7 @@ export function Sidebar({ active, onNavigate }: SidebarProps) {
   return (
     <aside className="flex h-full w-72 shrink-0 flex-col border-r border-slate-800/80 bg-slate-950/90">
       <div className="border-b border-slate-800/80 px-6 py-5">
-        <div className="flex items-center gap-3">
+        <Link href="/" className="flex items-center gap-3 transition hover:opacity-90">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500/20 to-blue-600/20 ring-1 ring-cyan-500/30">
             <Shield className="h-5 w-5 text-cyan-400" />
           </div>
@@ -44,7 +45,7 @@ export function Sidebar({ active, onNavigate }: SidebarProps) {
             <p className="text-lg font-semibold tracking-tight text-white">Shield</p>
             <p className="text-xs text-slate-400">Institutional Confidential Payments</p>
           </div>
-        </div>
+        </Link>
       </div>
 
       <nav className="flex-1 space-y-1 px-3 py-4">

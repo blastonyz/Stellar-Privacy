@@ -1,5 +1,5 @@
-import { ShieldApp } from "@/components/shield/ShieldApp";
+import { LandingPage } from "@/components/landing/LandingPage";
 
 export default function Home() {
-  return <ShieldApp />;
+  return <LandingPage />;
 }
