@@ -1,7 +1,9 @@
 {
   "name": "shield-backend",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
+  "license": "AGPL-3.0-or-later",
+  "author": "Blas Lap",
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",

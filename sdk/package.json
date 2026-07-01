@@ -1,5 +1,8 @@
 {
   "name": "encrypted-stellar-sdk",
+  "version": "0.2.0",
+  "license": "AGPL-3.0-or-later",
+  "author": "Blas Lap",
   "type": "module",
   "exports": {
     "./client": {
