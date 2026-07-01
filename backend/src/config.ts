@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { Keypair } from "@stellar/stellar-sdk";
 import { config as loadEnv } from "dotenv";
 
 /** Backend package root — same layout locally and on Cloud Run (/app). */
@@ -19,6 +20,17 @@ function defaultVkBuildDir(): string {
   return path.resolve(appRoot, "..", "circuits", "build");
 }
 
+function resolveAdminPublicKey(): string {
+  if (process.env.ADMIN_PUBLIC_KEY) {
+    return process.env.ADMIN_PUBLIC_KEY;
+  }
+  const secret = process.env.SECRET_KEY;
+  if (secret) {
+    return Keypair.fromSecret(secret).publicKey();
+  }
+  return "";
+}
+
 export const config = {
   port: Number(process.env.PORT ?? "8080"),
   rpcUrl: process.env.RPC_URL ?? "https://soroban-testnet.stellar.org",
@@ -27,7 +39,7 @@ export const config = {
   vkBuildDir: defaultVkBuildDir(),
   txTimeoutSeconds: Number(process.env.TX_TIMEOUT_SECONDS ?? "1800"),
   rapidsnarkBin: process.env.RAPIDSNARK_BIN || undefined,
-  adminPublicKey: process.env.ADMIN_PUBLIC_KEY ?? "",
+  adminPublicKey: resolveAdminPublicKey(),
   corsOrigin: process.env.CORS_ORIGIN ?? "*",
 };
 

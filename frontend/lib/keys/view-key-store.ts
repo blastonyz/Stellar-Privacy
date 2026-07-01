@@ -15,13 +15,18 @@ export function exportViewKeyBackup(address: string): string | null {
   return JSON.stringify({ version: 1, address, sk, exportedAt: new Date().toISOString() });
 }
 
-export function importViewKeyBackup(json: string): { address: string; sk: string } {
+export function parseViewKeyBackup(json: string): { address: string; sk: string } {
   const parsed = JSON.parse(json) as { address?: string; sk?: string };
   if (!parsed.address || !parsed.sk) {
     throw new Error("Invalid view key backup format");
   }
-  saveViewKey(parsed.address, parsed.sk);
   return { address: parsed.address, sk: parsed.sk };
+}
+
+export function importViewKeyBackup(json: string): { address: string; sk: string } {
+  const backup = parseViewKeyBackup(json);
+  saveViewKey(backup.address, backup.sk);
+  return backup;
 }
 
 // Backward-compatible aliases

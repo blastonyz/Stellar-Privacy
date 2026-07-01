@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { useFreighter } from "@/hooks/useFreighter";
 import { shieldApi } from "@/lib/api/shield-client";
 import { decryptBalanceLocal } from "@/lib/decrypt";
-import { loadViewKey, saveViewKey } from "@/lib/keys/view-key-store";
+import { loadViewKey, parseViewKeyBackup, saveViewKey } from "@/lib/keys/view-key-store";
 import {
   extractPublicInputs,
   fetchContractEvents,
@@ -12,17 +12,24 @@ import {
   fetchIsRegistered,
 } from "@/lib/shield-protocol";
 import { signAndSubmit } from "@/lib/transactions";
+import { formatShieldError, VIEW_KEY_REQUIRED_MESSAGE } from "@/lib/user-messages";
 import type { ContractEvent, PublicInputs, ShieldAccountState } from "@/types";
+
+type ContractFeatures = {
+  deposit: boolean;
+};
 
 type ShieldContextValue = {
   wallet: ReturnType<typeof useFreighter>;
   account: ShieldAccountState;
   events: ContractEvent[];
   publicInputs: PublicInputs | null;
+  features: ContractFeatures;
   loading: boolean;
   status: string | null;
   refresh: () => Promise<void>;
   register: () => Promise<void>;
+  importViewKey: (raw: string) => Promise<boolean>;
   transfer: (input: {
     to: string;
     amount: string;
@@ -48,6 +55,16 @@ export function ShieldProvider({ children }: { children: React.ReactNode }) {
   const [publicInputs, setPublicInputs] = useState<PublicInputs | null>(null);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
+  const [features, setFeatures] = useState<ContractFeatures>({ deposit: false });
+
+  const refreshFeatures = useCallback(async (caller?: string) => {
+    try {
+      const health = await shieldApi.health(caller);
+      setFeatures(health.features ?? { deposit: false });
+    } catch {
+      setFeatures({ deposit: false });
+    }
+  }, []);
 
   const refresh = useCallback(async () => {
     if (!wallet.address) {
@@ -87,8 +104,19 @@ export function ShieldProvider({ children }: { children: React.ReactNode }) {
   }, [wallet.address]);
 
   useEffect(() => {
+    void refreshFeatures(wallet.address ?? undefined);
+  }, [refreshFeatures, wallet.address]);
+
+  useEffect(() => {
+    if (!wallet.address) {
+      void refresh();
+      return;
+    }
+    if (!wallet.connected || wallet.networkMismatch) {
+      return;
+    }
     void refresh();
-  }, [refresh]);
+  }, [refresh, wallet.address, wallet.connected, wallet.networkMismatch]);
 
   const register = useCallback(async () => {
     if (!wallet.address) throw new Error("Connect Freighter first");
@@ -101,18 +129,58 @@ export function ShieldProvider({ children }: { children: React.ReactNode }) {
       setStatus(`Registered successfully. Tx: ${result.hash}`);
       await refresh();
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      setStatus(message);
-      throw error;
+      setStatus(formatShieldError(error));
     }
   }, [refresh, wallet]);
 
+  const importViewKey = useCallback(
+    async (raw: string) => {
+      if (!wallet.address) {
+        setStatus("Connect Freighter first.");
+        return false;
+      }
+
+      try {
+        const trimmed = raw.trim();
+        let sk: string;
+        let address: string;
+
+        if (trimmed.startsWith("{")) {
+          const backup = parseViewKeyBackup(trimmed);
+          address = backup.address;
+          sk = backup.sk;
+        } else {
+          address = wallet.address;
+          sk = trimmed;
+        }
+
+        if (address !== wallet.address) {
+          setStatus("View key backup is for a different Stellar address.");
+          return false;
+        }
+
+        saveViewKey(wallet.address, sk);
+        setAccount((current) => ({ ...current, babyJubSk: sk }));
+        setStatus("View key imported. You can transfer and decrypt balances.");
+        return true;
+      } catch (error) {
+        setStatus(formatShieldError(error));
+        return false;
+      }
+    },
+    [wallet.address],
+  );
+
   const transfer = useCallback(
     async (input: { to: string; amount: string; fromBalance?: string; toBalance?: string }) => {
-      if (!wallet.address) throw new Error("Connect Freighter first");
+      if (!wallet.address) {
+        setStatus("Connect Freighter before transferring.");
+        return "";
+      }
       const babyJubSk = loadViewKey(wallet.address);
       if (!babyJubSk) {
-        throw new Error("Missing view key. Register on-chain first.");
+        setStatus(VIEW_KEY_REQUIRED_MESSAGE);
+        return "";
       }
 
       setStatus("Generating transfer proof via Shield backend...");
@@ -136,9 +204,8 @@ export function ShieldProvider({ children }: { children: React.ReactNode }) {
         await refresh();
         return result.hash;
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        setStatus(message);
-        throw error;
+        setStatus(formatShieldError(error));
+        return "";
       }
     },
     [refresh, wallet],
@@ -146,7 +213,20 @@ export function ShieldProvider({ children }: { children: React.ReactNode }) {
 
   const deposit = useCallback(
     async (amount: string) => {
-      if (!wallet.address) throw new Error("Connect Freighter first");
+      if (!wallet.address) {
+        setStatus("Connect Freighter before depositing.");
+        return "";
+      }
+      if (!account.registered) {
+        setStatus("Register on-chain before depositing.");
+        return "";
+      }
+      if (!features.deposit) {
+        setStatus(
+          "Deposit is not available on the deployed contract yet. Redeploy encrypted_token with the deposit entrypoint, run make upload-vks, and update ENCRYPTED_TOKEN_CONTRACT_ID.",
+        );
+        return "";
+      }
       setStatus("Generating deposit proof via Shield backend...");
       try {
         const payload = await shieldApi.deposit({ user: wallet.address, amount });
@@ -156,17 +236,19 @@ export function ShieldProvider({ children }: { children: React.ReactNode }) {
         await refresh();
         return result.hash;
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        setStatus(message);
-        throw error;
+        setStatus(formatShieldError(error));
+        return "";
       }
     },
-    [refresh, wallet],
+    [account.registered, features.deposit, refresh, wallet],
   );
 
   const mint = useCallback(
     async (to: string, amount: string) => {
-      if (!wallet.address) throw new Error("Connect Freighter first");
+      if (!wallet.address) {
+        setStatus("Connect the admin Freighter wallet before minting.");
+        return "";
+      }
       setStatus("Generating mint proof via Shield backend...");
       try {
         const payload = await shieldApi.mint({
@@ -180,9 +262,8 @@ export function ShieldProvider({ children }: { children: React.ReactNode }) {
         await refresh();
         return result.hash;
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        setStatus(message);
-        throw error;
+        setStatus(formatShieldError(error));
+        return "";
       }
     },
     [refresh, wallet],
@@ -192,12 +273,19 @@ export function ShieldProvider({ children }: { children: React.ReactNode }) {
     if (!wallet.address || !account.encryptedBalance) return null;
     const viewKey = loadViewKey(wallet.address);
     if (!viewKey) {
-      throw new Error("Missing view key for decryption");
+      setStatus(VIEW_KEY_REQUIRED_MESSAGE);
+      return null;
     }
 
-    const balance = await decryptBalanceLocal(account.encryptedBalance, viewKey);
-    setAccount((current) => ({ ...current, decryptedBalance: balance }));
-    return balance;
+    try {
+      const balance = await decryptBalanceLocal(account.encryptedBalance, viewKey);
+      setAccount((current) => ({ ...current, decryptedBalance: balance }));
+      setStatus(null);
+      return balance;
+    } catch (error) {
+      setStatus(formatShieldError(error));
+      return null;
+    }
   }, [account.encryptedBalance, wallet.address]);
 
   const value = useMemo(
@@ -206,10 +294,12 @@ export function ShieldProvider({ children }: { children: React.ReactNode }) {
       account,
       events,
       publicInputs,
+      features,
       loading,
       status,
       refresh,
       register,
+      importViewKey,
       transfer,
       deposit,
       mint,
@@ -220,10 +310,12 @@ export function ShieldProvider({ children }: { children: React.ReactNode }) {
       account,
       events,
       publicInputs,
+      features,
       loading,
       status,
       refresh,
       register,
+      importViewKey,
       transfer,
       deposit,
       mint,

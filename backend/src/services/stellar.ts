@@ -14,6 +14,7 @@ import {
   type JubPoint,
 } from "../lib/client.js";
 import { assertContractConfigured, config } from "../config.js";
+import { formatSimulationError } from "../lib/simulation-errors.js";
 
 const server = new rpc.Server(config.rpcUrl);
 
@@ -39,7 +40,7 @@ export async function simulateView(
 
   const simulation = await server.simulateTransaction(tx);
   if (rpc.Api.isSimulationError(simulation)) {
-    throw new Error(`View simulation failed for ${fn}: ${simulation.error}`);
+    throw new Error(`View simulation failed for ${fn}: ${formatSimulationError(simulation.error)}`);
   }
   if (!simulation.result?.retval) {
     throw new Error(`View ${fn} returned no value`);
@@ -59,7 +60,7 @@ export async function buildUnsignedTx(publicKey: string, operation: xdr.Operatio
 
   const simulation = await server.simulateTransaction(baseTx);
   if (rpc.Api.isSimulationError(simulation)) {
-    throw new Error(`Simulation failed: ${simulation.error}`);
+    throw new Error(`Simulation failed: ${formatSimulationError(simulation.error)}`);
   }
   return rpc.assembleTransaction(baseTx, simulation).build().toXDR();
 }

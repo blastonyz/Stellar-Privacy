@@ -3,17 +3,12 @@
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader } from "@/components/ui/Card";
+import { OnboardingPanel } from "@/components/shield/OnboardingPanel";
+import { ViewKeyPanel } from "@/components/shield/ViewKeyPanel";
 import { cn } from "@/lib/utils";
 import { useShield } from "@/providers/ShieldProvider";
 import { Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
-
-function toHex(value: Buffer | Uint8Array): string {
-  const bytes = value instanceof Uint8Array ? value : new Uint8Array(value);
-  return `0x${Array.from(bytes)
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("")}`;
-}
 
 export function CorporateBalances() {
   const { wallet, account, decryptLocalBalance } = useShield();
@@ -48,6 +43,9 @@ export function CorporateBalances() {
           <h2 className="text-sm font-medium text-white">Shielded Asset Account</h2>
         </CardHeader>
         <CardContent className="space-y-4">
+          <OnboardingPanel mode="balance" />
+          <ViewKeyPanel />
+
           {!wallet.address ? (
             <p className="text-sm text-slate-500">Connect Freighter to inspect your shielded balance.</p>
           ) : (
@@ -72,7 +70,7 @@ export function CorporateBalances() {
                 <Button
                   variant="secondary"
                   size="sm"
-                  disabled={!account.registered || busy}
+                  disabled={!account.registered || !account.babyJubSk || busy}
                   onClick={() => void toggleVisibility()}
                 >
                   {visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -80,25 +78,6 @@ export function CorporateBalances() {
                 </Button>
               </div>
             </div>
-          )}
-
-          {account.encryptedBalance && (
-            <pre className="overflow-x-auto rounded-lg border border-slate-800 bg-slate-950 p-4 font-mono text-[11px] text-slate-400">
-              {JSON.stringify(
-                {
-                  c1: {
-                    x: toHex(account.encryptedBalance.c1.x),
-                    y: toHex(account.encryptedBalance.c1.y),
-                  },
-                  c2: {
-                    x: toHex(account.encryptedBalance.c2.x),
-                    y: toHex(account.encryptedBalance.c2.y),
-                  },
-                },
-                null,
-                2,
-              )}
-            </pre>
           )}
         </CardContent>
       </Card>

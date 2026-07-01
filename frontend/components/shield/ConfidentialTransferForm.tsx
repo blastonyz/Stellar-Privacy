@@ -2,20 +2,36 @@
 
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader } from "@/components/ui/Card";
+import { CounterpartySetup } from "@/components/shield/CounterpartySetup";
+import { OnboardingPanel } from "@/components/shield/OnboardingPanel";
+import { ViewKeyPanel } from "@/components/shield/ViewKeyPanel";
 import { ASSET_OPTIONS } from "@/lib/mock-data";
+import { stellarConfig } from "@/lib/stellar";
 import { shortAddress } from "@/lib/utils";
 import { useShield } from "@/providers/ShieldProvider";
-import { LoaderCircle, ShieldAlert } from "lucide-react";
-import { useState } from "react";
+import { LoaderCircle } from "lucide-react";
+import { useEffect, useState } from "react";
 
 export function ConfidentialTransferForm() {
   const { wallet, account, status, transfer } = useShield();
-  const [receiver, setReceiver] = useState("");
+  const [receiver, setReceiver] = useState(stellarConfig.demoReceptorAddress);
   const [asset, setAsset] = useState<string>(ASSET_OPTIONS[0]);
   const [amount, setAmount] = useState("");
   const [fromBalance, setFromBalance] = useState("100");
   const [toBalance, setToBalance] = useState("0");
   const [isGeneratingProof, setIsGeneratingProof] = useState(false);
+
+  const canTransfer =
+    Boolean(wallet.address) &&
+    account.registered &&
+    Boolean(account.babyJubSk) &&
+    !wallet.networkMismatch;
+
+  useEffect(() => {
+    if (!receiver && stellarConfig.demoReceptorAddress) {
+      setReceiver(stellarConfig.demoReceptorAddress);
+    }
+  }, [receiver]);
 
   const handleSubmit = async () => {
     if (!wallet.address) return;
@@ -48,6 +64,10 @@ export function ConfidentialTransferForm() {
           <h2 className="text-base font-medium text-white">Initiate Shielded B2B Settlement</h2>
         </CardHeader>
         <CardContent className="space-y-5">
+          <OnboardingPanel mode="transfer" />
+          <ViewKeyPanel requireSaved />
+          <CounterpartySetup receiverAddress={receiver} />
+
           <label className="block space-y-2">
             <span className="text-xs uppercase tracking-wide text-slate-500">Sender Address</span>
             <input
@@ -121,15 +141,8 @@ export function ConfidentialTransferForm() {
           </div>
 
           <span className="flex items-start gap-2 text-xs text-slate-500">
-            <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-cyan-400" />
             Amount will be homomorphically encrypted. Never exposed on-chain.
           </span>
-
-          {!account.registered && (
-            <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-sm text-amber-100">
-              Register on the token contract before initiating a private transfer.
-            </div>
-          )}
 
           {(isGeneratingProof || status?.includes("proof")) && (
             <div className="rounded-lg border border-cyan-500/20 bg-cyan-500/5 px-4 py-3 text-sm text-cyan-100">
@@ -153,10 +166,9 @@ export function ConfidentialTransferForm() {
             size="lg"
             className="w-full"
             disabled={
-              !wallet.address ||
+              !canTransfer ||
               !receiver ||
               !amount ||
-              !account.registered ||
               isGeneratingProof
             }
             onClick={() => void handleSubmit()}

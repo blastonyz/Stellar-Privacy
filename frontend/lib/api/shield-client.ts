@@ -1,11 +1,16 @@
-const BASE_URL = process.env.NEXT_PUBLIC_SHIELD_API ?? "http://localhost:8787";
+import {
+  assertShieldApiConfigured,
+  shieldApiBaseUrl,
+  shieldApiConfig,
+} from "@/lib/shield-api-config";
 
 async function post<T>(
   path: string,
   body: unknown,
   headers?: Record<string, string>,
 ): Promise<T> {
-  const response = await fetch(`${BASE_URL}${path}`, {
+  assertShieldApiConfigured();
+  const response = await fetch(`${shieldApiBaseUrl}${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...headers },
     body: JSON.stringify(body),
@@ -29,8 +34,22 @@ export type TxBuildResponse = {
   publicInputs: Record<string, string>;
 };
 
+export type HealthResponse = {
+  ok: boolean;
+  contractId: string | null;
+  features?: { deposit: boolean };
+};
+
 export const shieldApi = {
-  health: () => fetch(`${BASE_URL}/health`).then((r) => r.json()),
+  config: shieldApiConfig,
+
+  health: (caller?: string) => {
+    assertShieldApiConfigured();
+    const query = caller ? `?caller=${encodeURIComponent(caller)}` : "";
+    return fetch(`${shieldApiBaseUrl}/health${query}`).then(
+      (r) => r.json() as Promise<HealthResponse>,
+    );
+  },
 
   register: (address: string) =>
     post<RegisterResponse>("/tx/register", { address }),

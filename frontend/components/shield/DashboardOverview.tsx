@@ -4,6 +4,8 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader } from "@/components/ui/Card";
 import { ConnectWalletButton } from "@/components/wallet/ConnectWalletButton";
+import { OnboardingPanel } from "@/components/shield/OnboardingPanel";
+import { ViewKeyPanel } from "@/components/shield/ViewKeyPanel";
 import { formatTimestamp, shortAddress } from "@/lib/utils";
 import { useShield } from "@/providers/ShieldProvider";
 import type { ProofStatus } from "@/types";
@@ -106,6 +108,13 @@ export function DashboardOverview() {
         </Card>
       )}
 
+      {wallet.connected && account.registered && (
+        <div className="space-y-3">
+          <OnboardingPanel mode="balance" />
+          <ViewKeyPanel />
+        </div>
+      )}
+
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardContent className="space-y-3">
@@ -114,7 +123,7 @@ export function DashboardOverview() {
               <button
                 type="button"
                 onClick={() => void handleReveal()}
-                disabled={!account.registered || busy}
+                disabled={!account.registered || !account.babyJubSk || busy}
                 className="rounded-md p-1 text-slate-400 transition hover:bg-slate-800 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/60 disabled:opacity-40"
               >
                 {revealed ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -126,7 +135,11 @@ export function DashboardOverview() {
                 : "•••••••"}
             </p>
             <p className="text-xs text-slate-500">
-              {account.registered ? "Decrypted locally with BabyJub secret" : "Register to enable"}
+              {account.babyJubSk
+                ? "Decrypted locally with view key"
+                : account.registered
+                  ? "Save or import view key to reveal"
+                  : "Register to enable"}
             </p>
           </CardContent>
         </Card>

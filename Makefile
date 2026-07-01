@@ -30,7 +30,7 @@ help:
 	@echo "  make build-contracts      release WASM + stellar optimize"
 	@echo "  make test-contracts       cargo test encrypted_token"
 	@echo "  make generate-bindings    generate TypeScript bindings in sdk/bindings/"
-	@echo "  make deploy               deploy verifier + token + Register VK"
+	@echo "  make deploy               deploy verifier + token + all VKs"
 	@echo "  make upload-vks           upload all VKs to token contract"
 	@echo "  make upload-vk-transfer   upload Transfer VK only"
 	@echo "  make proof-register       register owner (+ saves circuits/build/register/state.json)"

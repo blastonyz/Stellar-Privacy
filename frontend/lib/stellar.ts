@@ -32,6 +32,7 @@ export const stellarConfig = {
     configs[NETWORK as keyof typeof configs]?.networkPassphrase ??
     configs.testnet.networkPassphrase,
   contractId: process.env.NEXT_PUBLIC_ENCRYPTED_TOKEN_CONTRACT_ID ?? "",
+  demoReceptorAddress: process.env.NEXT_PUBLIC_DEMO_RECEPTOR_ADDRESS ?? "",
 };
 
 export const horizon = new StellarSdk.Horizon.Server(stellarConfig.horizonUrl);

@@ -88,6 +88,18 @@ async function main(): Promise<void> {
 
   await uploadVerificationKey(tokenId, "Register", path.join(VK_BUILD_DIR, "register", "verification_key.json"));
 
+  const allOps: OperationName[] = ["Register", "Mint", "Transfer", "Deposit", "Withdraw"];
+  for (const op of allOps) {
+    const dir = op.toLowerCase();
+    const vkPath = path.join(VK_BUILD_DIR, dir, "verification_key.json");
+    if (!fs.existsSync(vkPath)) {
+      console.warn(`Skipping ${op} VK — missing ${vkPath}`);
+      continue;
+    }
+    if (op === "Register") continue;
+    await uploadVerificationKey(tokenId, op, vkPath);
+  }
+
   if (SAMPLE_PROOF_JSON && SAMPLE_PUBLIC_JSON) {
     await verifySampleProof(verifierId, path.join(VK_BUILD_DIR, "register", "verification_key.json"));
   } else {
@@ -279,6 +291,18 @@ function writeContractIdsToEnv(verifierId: string, tokenId: string): void {
 
   fs.writeFileSync(envPath, contents);
   console.log(`Updated ${envPath}`);
+
+  const frontendEnvPath = path.join(projectRoot, "frontend", ".env.local");
+  let frontendContents = fs.existsSync(frontendEnvPath)
+    ? fs.readFileSync(frontendEnvPath, "utf8")
+    : "";
+  frontendContents = setEnvValue(
+    frontendContents,
+    "NEXT_PUBLIC_ENCRYPTED_TOKEN_CONTRACT_ID",
+    tokenId,
+  );
+  fs.writeFileSync(frontendEnvPath, frontendContents);
+  console.log(`Updated ${frontendEnvPath}`);
 }
 
 function setEnvValue(contents: string, key: string, value: string): string {

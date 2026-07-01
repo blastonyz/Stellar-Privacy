@@ -31,7 +31,7 @@ type SidebarProps = {
 
 export function Sidebar({ active, onNavigate }: SidebarProps) {
   const { wallet, account } = useShield();
-  const connected = wallet.connected && wallet.address;
+  const linked = wallet.connected && wallet.address;
 
   return (
     <aside className="flex h-full w-72 shrink-0 flex-col border-r border-slate-800/80 bg-slate-950/90">
@@ -75,23 +75,36 @@ export function Sidebar({ active, onNavigate }: SidebarProps) {
             <Wallet className="h-3.5 w-3.5" />
             Wallet Status
           </div>
-          {connected ? (
+          {linked ? (
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <span className="relative flex h-2 w-2">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-40" />
-                  <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
+                  {!wallet.networkMismatch && (
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-40" />
+                  )}
+                  <span
+                    className={cn(
+                      "relative inline-flex h-2 w-2 rounded-full",
+                      wallet.networkMismatch ? "bg-amber-400" : "bg-emerald-400",
+                    )}
+                  />
                 </span>
                 <p className="text-xs text-slate-300">
-                  Connected via Freighter:{" "}
+                  {wallet.networkMismatch ? "Wrong network:" : "Connected via Freighter:"}{" "}
                   <span className="font-mono text-slate-100">
                     {shortAddress(wallet.address!)}
                   </span>
                 </p>
               </div>
-              <p className="text-[11px] text-slate-500">
-                Registration: {account.registered ? "On-chain" : "Not registered"}
-              </p>
+              {wallet.networkMismatch ? (
+                <p className="text-[11px] text-amber-200">
+                  Switch Freighter to {wallet.expectedNetwork}
+                </p>
+              ) : (
+                <p className="text-[11px] text-slate-500">
+                  Registration: {account.registered ? "On-chain" : "Not registered"}
+                </p>
+              )}
             </div>
           ) : (
             <ConnectWalletButton />

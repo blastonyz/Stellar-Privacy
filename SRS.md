@@ -330,12 +330,21 @@ make install-backend && make dev-backend
 make dev-frontend
 ```
 
-**Frontend `.env.local` additions:**
+**Frontend `.env.local` (development):**
 
 ```env
-NEXT_PUBLIC_SHIELD_API=http://localhost:8787
-NEXT_PUBLIC_ADMIN_PUBLIC_KEY=<contract-admin-stellar-address>
+NEXT_PUBLIC_APP_ENV=development
+NEXT_PUBLIC_SHIELD_API_DEV=http://localhost:8080
 ```
+
+**Frontend (production / Vercel):**
+
+```env
+NEXT_PUBLIC_APP_ENV=production
+NEXT_PUBLIC_SHIELD_API_PROD=https://your-cloud-run-url.run.app
+```
+
+Optional override for any environment: `NEXT_PUBLIC_SHIELD_API=<url>`
 
 **Root `.env` additions for backend:**
 
