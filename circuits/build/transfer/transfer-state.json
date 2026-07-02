@@ -1,0 +1,8 @@
+{
+  "sender": "GBT7NTJIOY6UCYDTNBW4K57EF5KYRS3QGHGDTWQB4LJJV367DVIOJVY7",
+  "receiver": "GD4RG67NYD3TZKYJHNYXJDZXLXEFLKLJC3K3JC75RZGC5NDCKELX2I3O",
+  "amount": "10",
+  "expectedSenderBalance": "90",
+  "expectedReceiverBalance": "10",
+  "txHash": "2a6fdf8141758bb5c1d3f96cde22ec3977939710dfe4f8d77a17091ae351727c"
+}

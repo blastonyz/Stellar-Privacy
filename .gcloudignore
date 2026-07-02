@@ -1,0 +1,42 @@
+# Minimal Cloud Build context — backend Docker image only (~100 MB, not 9 GB)
+#
+# When .gcloudignore exists, gcloud does NOT use .gitignore — list exclusions explicitly.
+
+# Rust/Cargo (repo-root target/ can be 9+ GB)
+target/
+**/target/
+
+# Not needed for backend image
+frontend/
+sdk/
+contracts/
+scripts/
+.git/
+.env
+.env.*
+*.md
+LICENSE
+NOTICE
+Makefile
+SRS.md
+rwa-1/
+
+# Dependencies & build outputs (npm ci runs in Docker)
+**/node_modules/
+**/.next/
+backend/dist/
+sdk/dist/
+
+# Circom sources / extras (keep circuits/build only)
+circuits/*.circom
+circuits/lib/
+circuits/build/**/*_cpp/
+circuits/build/**/*.cpp
+circuits/build/**/*.sym
+circuits/build/**/*.r1cs
+circuits/build/**/*.dat
+circuits/build/**/*.asm
+circuits/build/**/proof.json
+circuits/build/**/public.json
+circuits/build/**/*-state.json
+circuits/build/**/state*.json

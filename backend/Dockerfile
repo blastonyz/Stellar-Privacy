@@ -1,10 +1,8 @@
 # Build from repo root so circuit artifacts are included:
-#   docker build -f backend/Dockerfile -t shield-backend .
-#
-# Cloud Run deploy (example):
-#   gcloud run deploy shield-backend --source . --dockerfile backend/Dockerfile
+#   gcloud builds submit . --config=cloudbuild.yaml
+#   gcloud run deploy verifier --image gcr.io/$PROJECT_ID/verifier --region us-central1 ...
 
-FROM node:20-bookworm-slim AS builder
+FROM node:22-bookworm-slim AS builder
 
 WORKDIR /app
 
@@ -15,7 +13,7 @@ COPY backend/tsconfig.json ./
 COPY backend/src ./src
 RUN npm run build
 
-FROM node:20-bookworm-slim
+FROM node:22-bookworm-slim
 
 WORKDIR /app
 
