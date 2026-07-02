@@ -1,84 +1,71 @@
-import { Button } from "@/components/ui/Button";
-import { Badge } from "@/components/ui/Badge";
 import Link from "next/link";
-import { ArrowRight, Eye, Lock, ShieldCheck, Sparkles } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
+
+const trustChips = ["Stellar", "Soroban", "ElGamal / BN254", "Groth16"];
 
 export function HeroSection() {
   return (
-    <section className="relative overflow-hidden px-6 pb-24 pt-16 md:pb-32 md:pt-24">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(34,211,238,0.18),transparent)]"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -right-32 top-20 h-96 w-96 rounded-full bg-blue-600/10 blur-3xl"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -left-24 bottom-0 h-72 w-72 rounded-full bg-cyan-500/10 blur-3xl"
-      />
+    <section className="relative flex min-h-[calc(100vh-88px)] flex-col items-center px-5 pb-16 pt-8 text-center md:pt-12">
+      <div className="mx-auto flex max-w-[900px] flex-col items-center">
+        <div className="landing-animate-rise-delay-1 mb-8 inline-flex items-center gap-2 rounded-full border border-shield-yellow/30 bg-shield-yellow/10 px-4 py-2 font-mono text-[11.5px] uppercase tracking-[0.08em] text-shield-yellow">
+          <span className="h-[5px] w-[5px] rounded-full bg-shield-yellow" />
+          Private transfer protocol · Stellar
+        </div>
 
-      <div className="relative mx-auto max-w-4xl text-center">
-        <Badge tone="info" className="mb-6 inline-flex gap-1.5 px-3 py-1">
-          <Sparkles className="h-3 w-3" />
-          Stellar Soroban · Testnet MVP
-        </Badge>
-
-        <h1 className="text-4xl font-semibold tracking-tight text-white md:text-6xl md:leading-[1.1]">
-          Institutional payments
-          <span className="block bg-gradient-to-r from-cyan-300 via-cyan-400 to-blue-500 bg-clip-text text-transparent">
-            without exposing balances
-          </span>
+        <h1 className="landing-animate-rise-delay-2 text-[clamp(2.375rem,6vw,4.625rem)] font-medium leading-[1.07] tracking-tight text-white drop-shadow-[0_2px_40px_rgba(0,0,0,0.35)]">
+          Encrypted balances.
+          <br />
+          <em className="font-normal not-italic text-shield-yellow">Verifiable trust.</em>
         </h1>
 
-        <p className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-slate-400 md:text-lg">
-          Shield combines Twisted ElGamal commitments on BabyJubJub with BN254 Groth16 proofs
-          verified on-chain. Amounts stay encrypted — only you decrypt locally with your view key.
+        <p className="landing-animate-rise-delay-3 mx-auto mt-6 max-w-[600px] text-[clamp(15px,1.7vw,18px)] leading-relaxed text-white/65">
+          Shield is a transfer standard on Stellar that encrypts every balance with{" "}
+          <strong className="font-semibold text-white">additive ElGamal on BN254</strong>. Amounts
+          stay invisible on-chain — yet fully auditable via{" "}
+          <code className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[0.88em] text-white">
+            view keys
+          </code>{" "}
+          for parties you authorize.
         </p>
 
-        <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
-          <Link href="/app">
-            <Button size="lg" className="min-w-[180px] gap-2">
-              Launch dashboard
-              <ArrowRight className="h-4 w-4" />
-            </Button>
+        <div className="landing-animate-rise-delay-4 mt-9 flex flex-wrap items-center justify-center gap-3.5">
+          <Link
+            href="/app"
+            className="inline-flex items-center gap-2 rounded-[9px] bg-shield-yellow px-6 py-3.5 text-[14.5px] font-bold text-black shadow-[0_1px_0_rgba(255,255,255,0.4)_inset,0_8px_26px_rgba(253,210,19,0.28)] transition hover:-translate-y-px hover:shadow-[0_1px_0_rgba(255,255,255,0.4)_inset,0_10px_32px_rgba(253,210,19,0.38)]"
+          >
+            Launch dashboard
+            <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={2.2} />
           </Link>
-          <a href="#how-it-works">
-            <Button size="lg" variant="secondary" className="min-w-[180px]">
-              See how it works
-            </Button>
+          <a
+            href="#how-it-works"
+            className="inline-flex items-center gap-2 rounded-[9px] border border-white/25 bg-black/15 px-5 py-3.5 text-[14.5px] font-semibold text-white backdrop-blur-md transition hover:border-white/40 hover:bg-black/30"
+          >
+            See the specification →
           </a>
         </div>
 
-        <ul className="mt-16 grid gap-4 text-left sm:grid-cols-3">
-          {[
-            {
-              icon: Lock,
-              title: "Homomorphic balances",
-              text: "Ciphertext updated on-chain; plaintext never published.",
-            },
-            {
-              icon: ShieldCheck,
-              title: "Groth16 verified",
-              text: "Every transfer proved against on-chain verification keys.",
-            },
-            {
-              icon: Eye,
-              title: "Local decrypt only",
-              text: "View key in your browser — not sent to the prover server.",
-            },
-          ].map(({ icon: Icon, title, text }) => (
-            <li
-              key={title}
-              className="rounded-xl border border-slate-800/80 bg-slate-900/40 p-5 backdrop-blur-sm"
-            >
-              <Icon className="mb-3 h-5 w-5 text-cyan-400" />
-              <p className="text-sm font-medium text-white">{title}</p>
-              <p className="mt-1 text-xs leading-relaxed text-slate-500">{text}</p>
-            </li>
-          ))}
-        </ul>
+        <div className="landing-animate-rise-delay-5 mt-14 flex flex-wrap items-center justify-center gap-6">
+          <span className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-white/35">
+            Built on
+          </span>
+          <div className="flex flex-wrap justify-center gap-2.5">
+            {trustChips.map((chip) => (
+              <span
+                key={chip}
+                className="rounded-[7px] border border-white/10 bg-black/20 px-3 py-1.5 font-mono text-xs text-white/55 backdrop-blur-md"
+              >
+                {chip}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="landing-animate-rise-delay-6 mt-auto flex justify-center pt-16">
+        <span
+          className="block h-[34px] w-px bg-gradient-to-b from-transparent via-white/50 to-transparent"
+          style={{ animation: "landing-cue-drift 2.4s ease-in-out infinite" }}
+        />
       </div>
     </section>
   );

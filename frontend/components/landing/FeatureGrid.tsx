@@ -29,14 +29,18 @@ const features = [
 
 export function FeatureGrid() {
   return (
-    <section id="features" className="border-t border-slate-800/60 px-6 py-20">
-      <div className="mx-auto max-w-6xl">
-        <div className="mb-12 max-w-xl">
-          <p className="text-xs uppercase tracking-[0.2em] text-cyan-400/80">Platform</p>
-          <h2 className="mt-2 text-2xl font-semibold text-white md:text-3xl">
+    <section id="features" className="relative border-t border-shield-violet/20 px-5 py-24 md:px-14">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_60%_50%_at_50%_0%,rgba(90,35,207,0.18),transparent_70%)]" />
+
+      <div className="relative mx-auto max-w-6xl">
+        <div className="mb-14 max-w-xl">
+          <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-shield-yellow">
+            Platform
+          </p>
+          <h2 className="mt-3 text-3xl font-medium tracking-tight text-white md:text-4xl">
             Built for regulated B2B flows
           </h2>
-          <p className="mt-3 text-sm text-slate-400">
+          <p className="mt-4 text-base leading-relaxed text-white/55">
             Register, mint, transfer, and audit — modular dashboard sections for each step of the
             shielded lifecycle.
           </p>
@@ -46,13 +50,13 @@ export function FeatureGrid() {
           {features.map(({ icon: Icon, title, description }) => (
             <article
               key={title}
-              className="group rounded-xl border border-slate-800/80 bg-slate-900/30 p-6 transition hover:border-cyan-500/20 hover:bg-slate-900/50"
+              className="group rounded-2xl border border-white/8 bg-white/[0.03] p-7 backdrop-blur-sm transition hover:border-shield-violet/40 hover:bg-shield-violet/[0.06]"
             >
-              <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-cyan-500/10 ring-1 ring-cyan-500/20 transition group-hover:bg-cyan-500/15">
-                <Icon className="h-5 w-5 text-cyan-400" />
+              <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-xl border border-shield-violet/30 bg-shield-violet/15 transition group-hover:border-shield-yellow/40 group-hover:bg-shield-yellow/10">
+                <Icon className="h-5 w-5 text-shield-yellow transition group-hover:text-shield-yellow" />
               </div>
-              <h3 className="text-base font-medium text-white">{title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-slate-500">{description}</p>
+              <h3 className="text-lg font-medium text-white">{title}</h3>
+              <p className="mt-2 text-sm leading-relaxed text-white/50">{description}</p>
             </article>
           ))}
         </div>

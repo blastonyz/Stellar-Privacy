@@ -1,4 +1,5 @@
 import { HeroSection } from "@/components/landing/HeroSection";
+import { HeroWebGLBackground } from "@/components/landing/HeroWebGLBackground";
 import { FeatureGrid } from "@/components/landing/FeatureGrid";
 import { HowItWorks } from "@/components/landing/HowItWorks";
 import { LandingFooter } from "@/components/landing/LandingFooter";
@@ -6,14 +7,20 @@ import { LandingNav } from "@/components/landing/LandingNav";
 
 export function LandingPage() {
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(34,211,238,0.06),_transparent_40%),linear-gradient(180deg,#020617_0%,#0f172a_100%)]">
-      <LandingNav />
-      <main>
-        <HeroSection />
-        <FeatureGrid />
-        <HowItWorks />
-      </main>
-      <LandingFooter />
+    <div className="landing-page relative min-h-screen bg-shield-black text-white">
+      <HeroWebGLBackground />
+
+      <div className="relative z-10">
+        <LandingNav />
+        <main>
+          <HeroSection />
+          <div className="relative bg-shield-black">
+            <FeatureGrid />
+            <HowItWorks />
+          </div>
+        </main>
+        <LandingFooter />
+      </div>
     </div>
   );
 }

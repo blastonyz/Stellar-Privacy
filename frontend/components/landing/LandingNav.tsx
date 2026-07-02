@@ -1,42 +1,57 @@
 "use client";
 
-import { Button } from "@/components/ui/Button";
 import { ConnectWalletButton } from "@/components/wallet/ConnectWalletButton";
+import { ShieldLogo } from "@/components/landing/ShieldLogo";
 import Link from "next/link";
-import { ArrowRight, Shield } from "lucide-react";
 
 export function LandingNav() {
   return (
-    <header className="sticky top-0 z-50 border-b border-slate-800/60 bg-slate-950/80 backdrop-blur-md">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-        <Link href="/" className="flex items-center gap-3 transition opacity-90 hover:opacity-100">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-500/20 to-blue-600/20 ring-1 ring-cyan-500/30">
-            <Shield className="h-4 w-4 text-cyan-400" />
-          </div>
-          <span className="text-sm font-semibold tracking-tight text-white">Shield</span>
+    <header className="relative z-50">
+      <nav className="mx-auto flex max-w-[1440px] items-center justify-between px-5 py-6 md:px-14">
+        <Link href="/" className="brand flex items-center gap-3 transition-opacity hover:opacity-90">
+          <ShieldLogo className="h-[26px] w-[26px] drop-shadow-[0_0_6px_rgba(253,210,19,0.45)]" />
+          <span className="font-mono text-[15px] font-semibold tracking-wide text-white">SHIELD</span>
         </Link>
 
-        <nav className="hidden items-center gap-8 text-sm text-slate-400 md:flex">
-          <a href="#features" className="transition hover:text-white">
-            Features
-          </a>
-          <a href="#how-it-works" className="transition hover:text-white">
-            How it works
-          </a>
-        </nav>
+        <ul className="hidden items-center gap-9 text-[13.5px] font-medium text-white/55 md:flex">
+          <li>
+            <a href="#features" className="transition-colors hover:text-white">
+              Protocol
+            </a>
+          </li>
+          <li>
+            <a href="#features" className="transition-colors hover:text-white">
+              Cryptography
+            </a>
+          </li>
+          <li>
+            <a href="#how-it-works" className="transition-colors hover:text-white">
+              Compliance
+            </a>
+          </li>
+        </ul>
 
-        <div className="flex items-center gap-3">
-          <div className="hidden sm:block">
+        <div className="flex items-center gap-3 md:gap-4">
+          <div
+            className="hidden items-center gap-2 rounded-full border border-white/10 bg-black/25 px-3 py-1.5 font-mono text-[11px] tracking-wide text-white/55 backdrop-blur-md sm:flex"
+          >
+            <span
+              className="h-1.5 w-1.5 rounded-full bg-shield-yellow shadow-[0_0_8px_#FDD213]"
+              style={{ animation: "landing-pulse-dot 2.2s ease-in-out infinite" }}
+            />
+            Stellar Testnet
+          </div>
+          <div className="hidden lg:block [&_button]:border [&_button]:border-white/20 [&_button]:bg-black/20 [&_button]:text-white [&_button]:backdrop-blur-md">
             <ConnectWalletButton />
           </div>
-          <Link href="/app">
-            <Button size="sm" className="gap-1.5">
-              Open app
-              <ArrowRight className="h-3.5 w-3.5" />
-            </Button>
+          <Link
+            href="/app"
+            className="rounded-lg border border-white/15 bg-black/20 px-4 py-2 text-[13.5px] font-semibold text-white backdrop-blur-md transition hover:border-white/30 hover:bg-black/40"
+          >
+            Open app
           </Link>
         </div>
-      </div>
+      </nav>
     </header>
   );
 }

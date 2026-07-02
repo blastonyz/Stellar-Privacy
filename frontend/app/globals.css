@@ -1,26 +1,126 @@
 @import "tailwindcss";
 
 :root {
-  --background: #020617;
+  --background: #000000;
   --foreground: #f8fafc;
+  --shield-violet: #5a23cf;
+  --shield-yellow: #fdd213;
+  --shield-black: #000000;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --color-shield-violet: #5a23cf;
+  --color-shield-yellow: #fdd213;
+  --color-shield-black: #000000;
+  --font-sans: var(--font-inter);
+  --font-heading: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
+  font-family: var(--font-inter), system-ui, sans-serif;
+}
+
+.landing-page h1,
+.landing-page h2 {
   font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+@keyframes landing-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes landing-pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@keyframes landing-cue-drift {
+  0%,
+  100% {
+    opacity: 0.2;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+.landing-animate-rise {
+  animation: landing-rise 1s ease forwards;
+}
+
+.landing-animate-rise-delay-1 {
+  animation: landing-rise 0.9s ease forwards 0.15s;
+  opacity: 0;
+}
+
+.landing-animate-rise-delay-2 {
+  animation: landing-rise 1s ease forwards 0.32s;
+  opacity: 0;
+}
+
+.landing-animate-rise-delay-3 {
+  animation: landing-rise 1s ease forwards 0.5s;
+  opacity: 0;
+}
+
+.landing-animate-rise-delay-4 {
+  animation: landing-rise 1s ease forwards 0.68s;
+  opacity: 0;
+}
+
+.landing-animate-rise-delay-5 {
+  animation: landing-rise 1s ease forwards 0.86s;
+  opacity: 0;
+}
+
+.landing-animate-rise-delay-6 {
+  animation: landing-rise 1s ease forwards 1.1s;
+  opacity: 0;
+}
+
+.hero-gl-canvas {
+  opacity: 0;
+  transition: opacity 1.4s ease;
+}
+
+.hero-gl-canvas.ready {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-animate-rise,
+  .landing-animate-rise-delay-1,
+  .landing-animate-rise-delay-2,
+  .landing-animate-rise-delay-3,
+  .landing-animate-rise-delay-4,
+  .landing-animate-rise-delay-5,
+  .landing-animate-rise-delay-6 {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
 }
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgb(51 65 85) transparent;
+  scrollbar-color: rgb(90 35 207 / 0.5) transparent;
 }
 
 ::-webkit-scrollbar {
@@ -29,6 +129,6 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgb(51 65 85);
+  background: rgb(90 35 207 / 0.5);
   border-radius: 9999px;
 }

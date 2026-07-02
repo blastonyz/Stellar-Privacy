@@ -1,15 +1,18 @@
 import Link from "next/link";
-import { Shield } from "lucide-react";
+import { ShieldLogo } from "@/components/landing/ShieldLogo";
 
 export function LandingFooter() {
   return (
-    <footer className="border-t border-slate-800/60 px-6 py-10">
-      <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 sm:flex-row">
-        <div className="flex items-center gap-2 text-slate-500">
-          <Shield className="h-4 w-4 text-slate-600" />
-          <span className="text-xs">Shield · Encrypted Stellar · AGPL-3.0</span>
+    <footer className="border-t border-white/8 bg-shield-black px-5 py-12 md:px-14">
+      <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-6 sm:flex-row">
+        <div className="flex items-center gap-3 text-white/45">
+          <ShieldLogo className="h-5 w-5 opacity-80" />
+          <span className="text-xs tracking-wide">Shield · Encrypted Stellar · AGPL-3.0</span>
         </div>
-        <Link href="/app" className="text-xs text-cyan-400/90 transition hover:text-cyan-300">
+        <Link
+          href="/app"
+          className="text-sm font-medium text-shield-yellow transition hover:text-white"
+        >
           Open dashboard →
         </Link>
       </div>
