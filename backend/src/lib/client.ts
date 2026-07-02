@@ -193,12 +193,12 @@ export async function encrypt(
  *
  * @param balance  encrypted balance
  * @param sk       user's secret key
- * @param maxV     maximum expected value (default 1e6 — matches frontend decrypt)
+ * @param maxV     maximum expected value (default 2^32 — demo mint headroom)
  */
 export async function decrypt(
   balance: EncryptedBalance,
   sk: bigint,
-  maxV = 1_000_000n,
+  maxV = 2n ** 32n,
 ): Promise<bigint> {
   const babyjub = await buildBabyjub();
   const F = babyjub.F;

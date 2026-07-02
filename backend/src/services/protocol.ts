@@ -50,7 +50,13 @@ async function decryptSenderBalance(
 ): Promise<bigint> {
   try {
     return await decrypt(balance!, sk);
-  } catch {
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.includes("exceeds maxV")) {
+      throw new Error(
+        "Could not decrypt sender balance — balance may exceed the demo decrypt limit, or your view key does not match on-chain registration.",
+      );
+    }
     throw new Error(
       "Could not decrypt sender balance — your view key may not match on-chain registration. Re-import your view key backup.",
     );
@@ -214,18 +220,17 @@ export async function buildTransferTransaction(input: {
   const toBalanceEnc =
     toBalanceOnChain ?? (await encrypt(0n, toPk, 0n));
 
-  const vFromOld =
-    input.fromBalance !== undefined
-      ? BigInt(input.fromBalance)
-      : await decryptSenderBalance(fromBalanceEnc, skFrom);
+  // Always derive sender balance from on-chain ciphertext + view key.
+  // Client-passed fromBalance can be stale after mint/deposit and breaks the circuit.
+  const vFromOld = await decryptSenderBalance(fromBalanceEnc, skFrom);
 
   const resolvedToSk = await resolveReceiverViewKey(input.to, input.toBabyJubSk);
 
   let vToOld: bigint;
-  if (input.toBalance !== undefined) {
-    vToOld = BigInt(input.toBalance);
-  } else if (resolvedToSk) {
+  if (resolvedToSk) {
     vToOld = await decryptReceiverBalance(toBalanceEnc, BigInt(resolvedToSk));
+  } else if (input.toBalance !== undefined) {
+    vToOld = BigInt(input.toBalance);
   } else if (!toBalanceOnChain) {
     vToOld = 0n;
   } else {

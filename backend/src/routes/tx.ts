@@ -2,6 +2,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
 import { config } from "../config.js";
 import { readRegisterState } from "../lib/register-state-store.js";
 import { resolveReceiverViewKey } from "../lib/receptor-keys.js";
+import { storedStateMatchesOnChainPk } from "../lib/view-key-verify.js";
 import {
   buildDepositTransaction,
   buildMintTransaction,
@@ -10,7 +11,7 @@ import {
   proveFromWitness,
   registerCounterpartyWithSecret,
 } from "../services/protocol.js";
-import { fetchIsRegistered } from "../services/stellar.js";
+import { fetchIsRegistered, fetchUserPk } from "../services/stellar.js";
 
 export const txRouter = Router();
 
@@ -98,6 +99,17 @@ txRouter.post(
       res.status(404).json({
         error:
           "No view key on file for this address. Register before this deploy, or from another browser without server persistence, cannot be recovered here.",
+      });
+      return;
+    }
+
+    const onChainPk = await fetchUserPk(trimmed, trimmed);
+    if (!storedStateMatchesOnChainPk(state, onChainPk)) {
+      res.status(409).json({
+        error:
+          "Stored view key does not match on-chain registration (wrong register session). Import the backup from the browser where you registered on live, or register a new Stellar account.",
+        onChainPk: { x: onChainPk.x.toString(), y: onChainPk.y.toString() },
+        storedPk: state.pk,
       });
       return;
     }

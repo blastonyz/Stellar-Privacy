@@ -57,7 +57,7 @@ async function babyStepGiantStep(
 export async function decryptBalanceLocal(
   encryptedBalance: EncryptedBalanceOnChain,
   viewKeySk: string,
-  maxBalance = 1_000_000n,
+  maxBalance = 2n ** 32n,
 ): Promise<string> {
   const babyjub = await buildBabyjub();
   const F = babyjub.F;
