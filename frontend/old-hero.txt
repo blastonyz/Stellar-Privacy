@@ -1,16 +1,12 @@
-"use client";
+
 
 import { useEffect, useRef, useState } from "react";
 import createREGL, { type Regl } from "regl";
 
-const PHOTO_URL = "/newback.jpg";
-/** Brightest point on the photo — sun sitting on the horizon. */
-const LIGHT_IMAGE_UV: [number, number] = [0.5, 0.58];
-const IMAGE_SHIFT_DOWN = 0.06;
-/** Screen-space nudge — align ray core with the sun on the photo. */
-const LIGHT_SHIFT_DOWN = 0.14;
-/** Planet disk radius in normalized screen UV (top-down). */
-const PLANET_RADIUS = 1.72;
+const PHOTO_URL = "/back-1.jpg";
+const LIGHT_IMAGE_UV: [number, number] = [0.5, 0.3];
+/** Push image down on screen — more open sky above the horizon. */
+const IMAGE_SHIFT_DOWN = 0.10;
 
 const VERT_SHADER = `
   precision highp float;
@@ -29,8 +25,6 @@ const FRAG_SHADER = `
   uniform vec2 uUVScale;
   uniform vec2 uUVOffset;
   uniform vec2 uLightUV;
-  uniform vec2 uHorizonCenter;
-  uniform float uPlanetRadius;
   uniform float uTime;
   uniform float uReduceMotion;
   uniform vec2 uParallax;
@@ -52,84 +46,58 @@ const FRAG_SHADER = `
     vec2 uvBg = uv + uParallax*0.012;
     vec3 base = texture2D(uTexture, toImageUV(uvBg)).rgb;
 
-    // Limb follows the photo (background parallax only)
-    vec2 uvLimb = uv + uParallax*0.012;
-    vec2 horizonCenter = uHorizonCenter;
-
-    // Rays + core locked to the sun — no parallax drift
-    vec2 lightUV = uLightUV;
-    vec2 uvRay = uv;
+    vec2 uvFg = uv + uParallax*0.028;
+    vec2 lightUV = uLightUV + uParallax*0.048;
 
     float t = uTime * (1.0 - 0.85*uReduceMotion);
+    const int SAMPLES = 64;
 
-    // ── Violet planet limb curve (atmospheric arc) ──
-    vec3 shieldViolet = vec3(0.353, 0.137, 0.812);
-    vec3 shieldYellow = vec3(0.992, 0.824, 0.075);
+    float density = 0.78 + 0.38*sin(t*0.22) + 0.20*sin(t*0.51 + 1.7);
+    float decay = 0.952 + 0.024*sin(t*0.14 + 0.4);
+    float exposure = 0.62 + 0.14*sin(t*0.29) + 0.08*sin(t*0.73 + 2.1);
+    float weight = 1.0;
 
-    float distRing = abs(length(uvLimb - horizonCenter) - uPlanetRadius);
-    float onArc = exp(-distRing * 95.0);
-    float aboveHorizon = smoothstep(lightUV.y + 0.008, lightUV.y - 0.04, uvLimb.y);
-    float arcWidth = smoothstep(0.022, 0.0, distRing);
-    float limbPulse = 0.88 + 0.12*sin(t*0.18);
+    vec2 toPixel = uvFg - lightUV;
+    float ang = 0.085*sin(t*0.33 + uv.x*5.0) + 0.038*sin(t*0.61 + uv.y*3.0);
+    float ca = cos(ang), sa = sin(ang);
+    vec2 dir = mat2(ca, -sa, sa, ca) * toPixel;
 
-    // Violet dominant (70%) → yellow kiss (30%) near the sun
-    float sunProx = exp(-length(uvLimb - lightUV) * 5.5);
-    vec3 limbColor = mix(shieldViolet * 1.25, mix(shieldViolet, shieldYellow, 0.45), sunProx * 0.55);
-    vec3 limb = limbColor * onArc * arcWidth * aboveHorizon * limbPulse * 1.35;
-
-    // Horizontal lens flare along the horizon
-    float horizFlare = exp(-abs(uvLimb.y - lightUV.y) * 38.0) * exp(-abs(uvLimb.x - lightUV.x) * 1.8);
-    limb += mix(shieldViolet, shieldYellow, 0.30) * horizFlare * 0.42;
-
-    // ── Golden sun starburst rays ──
-    vec2 toSun = uvRay - lightUV;
-    float dist = length(toSun);
-
-    float sway = 0.05*sin(t*0.31 + uvRay.x*4.5) + 0.022*sin(t*0.58 + uvRay.y*3.2);
-    float ca = cos(sway), sa = sin(sway);
-    vec2 toSunSway = mat2(ca, -sa, sa, ca) * toSun;
-    float swayAngle = atan(toSunSway.y, toSunSway.x);
-
-    float spokesA = pow(abs(sin(swayAngle*8.0 + sin(t*0.07)*0.5)), 2.35);
-    float spokesB = pow(abs(sin(swayAngle*13.0 - t*0.05)), 3.8);
-    float spokesC = pow(abs(sin(swayAngle*5.0 + t*0.03)), 5.8);
-    float starburst = spokesA*0.62 + spokesB*0.42 + spokesC*0.28;
-
-    // Rays fade outward from the sun — brightest at center, decreasing with distance
-    float radialFalloff = exp(-dist * 5.2) / (1.0 + dist * dist * 6.0);
-    starburst *= radialFalloff;
-    starburst *= 0.80 + 0.20*sin(t*0.22);
-
-    float shimmer = hash(uvRay*vec2(420.0,420.0) + t*1.6);
-    starburst *= 0.88 + 0.18*shimmer;
-
-    vec3 sunGold = mix(vec3(1.0, 0.78, 0.22), vec3(1.0, 0.96, 0.88), exp(-dist*6.0));
-    vec3 rays = sunGold * starburst * 0.82;
-
-    // Subtle photo-integrated glow (sample bright pixels along ray path)
-    const int SAMPLES = 32;
-    float density = 0.72 + 0.28*sin(t*0.20);
-    vec2 dir = normalize(toSunSway + vec2(0.0001));
-    vec2 sampleUV = uvRay;
-    float photoGlow = 0.0;
+    vec2 deltaUV = dir * density / float(SAMPLES);
+    vec2 sampleUV = uvFg;
+    float illum = 0.0;
     float curDecay = 1.0;
+
     for(int i=0;i<SAMPLES;i++){
-      sampleUV -= dir * density / float(SAMPLES);
-      float lum = luminance(texture2D(uTexture, toImageUV(sampleUV)).rgb);
-      photoGlow += smoothstep(0.50, 0.98, lum) * curDecay;
-      curDecay *= 0.94;
+      sampleUV -= deltaUV;
+      vec3 sc = texture2D(uTexture, toImageUV(sampleUV)).rgb;
+      float lum = luminance(sc);
+      float bright = smoothstep(0.46, 0.96, lum);
+      illum += bright*curDecay*weight;
+      curDecay *= decay;
     }
-    photoGlow /= float(SAMPLES);
-    rays += sunGold * photoGlow * 0.22 * exp(-dist*4.0);
+    illum /= float(SAMPLES);
 
-    // ── Central sun core ──
-    float coreGlow = exp(-dist*5.2) * (0.85 + 0.15*sin(t*0.55));
-    vec3 core = vec3(1.0, 0.97, 0.88) * coreGlow * 0.95;
+    float shimmer = hash(uv*vec2(500.0,500.0) + t*1.9);
+    illum *= 0.88 + 0.42*shimmer;
 
-    vec3 color = base + limb + rays + core;
+    float angle = atan(toPixel.y, toPixel.x);
+    float spokesA = pow(abs(sin(angle*9.0 + sin(t*0.08)*0.6)), 2.1);
+    float spokesB = pow(abs(sin(angle*5.0 - t*0.05)), 4.5);
+    float spokes = clamp(spokesA*0.82 + spokesB*0.92, 0.0, 1.8);
+    illum *= mix(1.0, spokes, 0.88);
+    illum = pow(illum, 1.02);
 
-    float vig = smoothstep(1.12, 0.38, length(uv - vec2(0.5, 0.40)));
-    color *= mix(0.90, 1.0, vig);
+    float distToLight = length(uvFg - lightUV);
+    float coreGlow = exp(-distToLight*3.6) * (0.78 + 0.32*sin(t*0.6));
+
+    vec3 rayColor = mix(vec3(1.0,0.72,0.44), vec3(1.0,0.93,0.82), coreGlow);
+    vec3 rays = rayColor * illum * exposure * 1.18;
+    vec3 core = vec3(1.0,0.92,0.78) * coreGlow * 0.68;
+
+    vec3 color = base + rays + core;
+
+    float vig = smoothstep(1.15, 0.35, length(uv-vec2(0.5,0.42)));
+    color *= mix(0.88, 1.0, vig);
 
     gl_FragColor = vec4(color, 1.0);
   }
@@ -140,6 +108,7 @@ const PARTICLE_VERT = `
   attribute float aSeedX, aSeedY, aSpeed, aSize, aPhase, aSpread;
   uniform vec2 uLightUV;
   uniform float uTime;
+  uniform vec2 uParallax;
   varying float vAlpha;
 
   void main(){
@@ -147,8 +116,9 @@ const PARTICLE_VERT = `
     float travel = life;
     float easeOut = 1.0 - (1.0-travel)*(1.0-travel);
 
-    vec2 lightUV = uLightUV;
+    vec2 lightUV = uLightUV + uParallax*0.07;
 
+    // Fan outward from the light — wider launch angle, brighter rise
     float fanAngle = aSeedX * 1.35;
     float radius = aSpread * easeOut * 1.05;
     vec2 fanOffset = vec2(sin(fanAngle) * radius, -abs(cos(fanAngle)) * radius * 0.42);
@@ -181,8 +151,6 @@ type SceneDrawProps = {
   uUVScale: [number, number];
   uUVOffset: [number, number];
   uLightUV: [number, number];
-  uHorizonCenter: [number, number];
-  uPlanetRadius: number;
   uTime: number;
   uParallax: [number, number];
 };
@@ -190,6 +158,7 @@ type SceneDrawProps = {
 type ParticleDrawProps = {
   uLightUV: [number, number];
   uTime: number;
+  uParallax: [number, number];
 };
 
 function initWebGL(
@@ -217,8 +186,7 @@ function initWebGL(
 
   let uvScale: [number, number] = [1, 1];
   let uvOffset: [number, number] = [0, 0];
-  let lightCanvasUV: [number, number] = [0.5, 0.56];
-  let horizonCenter: [number, number] = [0.5, 2.28];
+  let lightCanvasUV: [number, number] = [0.5, 0.3];
 
   const resize = () => {
     const W = window.innerWidth;
@@ -232,27 +200,23 @@ function initWebGL(
     const canvasAspect = W / H;
     const imageAspect = image.width / image.height;
 
-    let baseUvOffset: [number, number];
-
     if (canvasAspect > imageAspect) {
       const scaleY = imageAspect / canvasAspect;
       uvScale = [1, scaleY];
-      baseUvOffset = [0, (1 - scaleY) / 2];
+      uvOffset = [0, (1 - scaleY) / 2];
     } else {
       const scaleX = canvasAspect / imageAspect;
       uvScale = [scaleX, 1];
-      baseUvOffset = [(1 - scaleX) / 2, 0];
+      uvOffset = [(1 - scaleX) / 2, 0];
     }
 
-    uvOffset = [baseUvOffset[0], baseUvOffset[1]];
+    // Shift image down → horizon sits lower, more open space above
     uvOffset[1] -= IMAGE_SHIFT_DOWN * uvScale[1];
 
     lightCanvasUV = [
-      (LIGHT_IMAGE_UV[0] - baseUvOffset[0]) / uvScale[0],
-      (LIGHT_IMAGE_UV[1] - baseUvOffset[1]) / uvScale[1] + LIGHT_SHIFT_DOWN,
+      (LIGHT_IMAGE_UV[0] - uvOffset[0]) / uvScale[0],
+      (LIGHT_IMAGE_UV[1] - uvOffset[1]) / uvScale[1],
     ];
-
-    horizonCenter = [0.5, lightCanvasUV[1] + PLANET_RADIUS];
 
     regl.poll();
   };
@@ -269,8 +233,6 @@ function initWebGL(
       uUVScale: regl.prop<SceneDrawProps, "uUVScale">("uUVScale"),
       uUVOffset: regl.prop<SceneDrawProps, "uUVOffset">("uUVOffset"),
       uLightUV: regl.prop<SceneDrawProps, "uLightUV">("uLightUV"),
-      uHorizonCenter: regl.prop<SceneDrawProps, "uHorizonCenter">("uHorizonCenter"),
-      uPlanetRadius: PLANET_RADIUS,
       uTime: regl.prop<SceneDrawProps, "uTime">("uTime"),
       uReduceMotion: reduceMotion ? 1.0 : 0.0,
       uParallax: regl.prop<SceneDrawProps, "uParallax">("uParallax"),
@@ -310,6 +272,7 @@ function initWebGL(
         uniforms: {
           uLightUV: regl.prop<ParticleDrawProps, "uLightUV">("uLightUV"),
           uTime: regl.prop<ParticleDrawProps, "uTime">("uTime"),
+          uParallax: regl.prop<ParticleDrawProps, "uParallax">("uParallax"),
         },
         blend: {
           enable: true,
@@ -350,8 +313,6 @@ function initWebGL(
       uUVScale: uvScale,
       uUVOffset: uvOffset,
       uLightUV: lightCanvasUV,
-      uHorizonCenter: horizonCenter,
-      uPlanetRadius: PLANET_RADIUS,
       uTime,
       uParallax: parallaxCurrent,
     });
@@ -360,6 +321,7 @@ function initWebGL(
       drawParticles({
         uLightUV: lightCanvasUV,
         uTime,
+        uParallax: parallaxCurrent,
       });
     }
   });
@@ -410,7 +372,7 @@ export function HeroWebGLBackground() {
   return (
     <div className="pointer-events-none fixed inset-0 z-0" aria-hidden>
       <div
-        className="absolute inset-0 -z-10 bg-cover bg-[center_56%]"
+        className="absolute inset-0 -z-10 bg-cover bg-[center_22%]"
         style={{ backgroundImage: `url(${PHOTO_URL})` }}
       />
 
@@ -421,11 +383,11 @@ export function HeroWebGLBackground() {
         style={{ opacity: webglFailed ? 0 : undefined }}
       />
 
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_90%_70%_at_50%_38%,rgba(90,35,207,0.08)_0%,rgba(0,0,0,0.35)_60%,rgba(0,0,0,0.65)_100%)] mix-blend-multiply" />
-      <div className="absolute inset-x-0 top-0 h-[48vh] bg-gradient-to-b from-black/75 via-black/35 to-transparent" />
-      <div className="absolute inset-x-0 bottom-0 h-[22vh] bg-gradient-to-t from-black/60 to-transparent" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_85%_65%_at_50%_32%,rgba(90,35,207,0.12)_0%,rgba(0,0,0,0.45)_55%,rgba(0,0,0,0.72)_100%)] mix-blend-multiply" />
+      <div className="absolute inset-x-0 top-0 h-[52vh] bg-gradient-to-b from-black/90 via-black/55 to-transparent" />
+      <div className="absolute inset-x-0 bottom-0 h-[26vh] bg-gradient-to-t from-black/70 to-transparent" />
       <div
-        className="absolute inset-0 opacity-[0.035] mix-blend-overlay"
+        className="absolute inset-0 opacity-[0.04] mix-blend-overlay"
         style={{
           backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`,
         }}
