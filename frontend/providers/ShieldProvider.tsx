@@ -4,7 +4,14 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { useFreighter } from "@/hooks/useFreighter";
 import { shieldApi } from "@/lib/api/shield-client";
 import { decryptBalanceLocal } from "@/lib/decrypt";
-import { loadViewKey, parseViewKeyBackup, saveViewKey } from "@/lib/keys/view-key-store";
+import {
+  clearViewKey as clearStoredViewKey,
+  exportViewKeyBackup,
+  loadViewKey,
+  normalizeViewKeySk,
+  parseViewKeyBackup,
+  saveViewKey,
+} from "@/lib/keys/view-key-store";
 import {
   extractPublicInputs,
   fetchContractEvents,
@@ -35,6 +42,8 @@ type ShieldContextValue = {
     txHash: string | null;
   }>;
   importViewKey: (raw: string) => Promise<boolean>;
+  recoverViewKeyFromServer: () => Promise<boolean>;
+  clearViewKey: (address: string) => void;
   transfer: (input: { to: string; amount: string; fromBalance?: string; toBalance?: string }) => Promise<string>;
   deposit: (amount: string) => Promise<string>;
   mint: (to: string, amount: string) => Promise<string>;
@@ -124,7 +133,15 @@ export function ShieldProvider({ children }: { children: React.ReactNode }) {
     try {
       const payload = await shieldApi.register(wallet.address);
       saveViewKey(wallet.address, payload.babyJub.sk);
-      setStatus("Save your view key locally. Sign registration in Freighter...");
+      const backup = exportViewKeyBackup(wallet.address);
+      if (backup) {
+        try {
+          await navigator.clipboard.writeText(backup);
+          setStatus("View key saved locally and copied to clipboard — store the backup before signing.");
+        } catch {
+          setStatus("View key saved locally. Copy backup from the dashboard before you lose this browser.");
+        }
+      }
       const result = await signAndSubmit(payload.unsignedXdr, wallet.sign);
       setStatus(`Registered successfully. Tx: ${result.hash}`);
       await refresh();
@@ -181,11 +198,13 @@ export function ShieldProvider({ children }: { children: React.ReactNode }) {
           sk = backup.sk;
         } else {
           address = wallet.address;
-          sk = trimmed;
+          sk = normalizeViewKeySk(trimmed);
         }
 
         if (address !== wallet.address) {
-          setStatus("View key backup is for a different Stellar address.");
+          setStatus(
+            "View key backup is for a different Stellar address. Import it from Counterparty setup if it belongs to another account.",
+          );
           return false;
         }
 
@@ -197,6 +216,35 @@ export function ShieldProvider({ children }: { children: React.ReactNode }) {
         setStatus(formatShieldError(error));
         return false;
       }
+    },
+    [wallet.address],
+  );
+
+  const recoverViewKeyFromServer = useCallback(async () => {
+    if (!wallet.address) {
+      setStatus("Connect Freighter first.");
+      return false;
+    }
+    setStatus("Checking Shield backend for a saved view key...");
+    try {
+      const payload = await shieldApi.recoverViewKey(wallet.address);
+      saveViewKey(wallet.address, payload.sk);
+      setAccount((current) => ({ ...current, babyJubSk: payload.sk }));
+      setStatus("View key recovered from server and saved in this browser.");
+      return true;
+    } catch (error) {
+      setStatus(formatShieldError(error));
+      return false;
+    }
+  }, [wallet.address]);
+
+  const clearViewKey = useCallback(
+    (address: string) => {
+      clearStoredViewKey(address);
+      if (wallet.address === address) {
+        setAccount((current) => ({ ...current, babyJubSk: null, decryptedBalance: null }));
+      }
+      setStatus("View key cleared from this browser.");
     },
     [wallet.address],
   );
@@ -333,6 +381,8 @@ export function ShieldProvider({ children }: { children: React.ReactNode }) {
       register,
       registerCounterparty,
       importViewKey,
+      recoverViewKeyFromServer,
+      clearViewKey,
       transfer,
       deposit,
       mint,
@@ -350,6 +400,8 @@ export function ShieldProvider({ children }: { children: React.ReactNode }) {
       register,
       registerCounterparty,
       importViewKey,
+      recoverViewKeyFromServer,
+      clearViewKey,
       transfer,
       deposit,
       mint,

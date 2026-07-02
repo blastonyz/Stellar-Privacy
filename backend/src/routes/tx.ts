@@ -1,5 +1,6 @@
 import { Router, type Request, type Response, type NextFunction } from "express";
 import { config } from "../config.js";
+import { readRegisterState } from "../lib/register-state-store.js";
 import { resolveReceiverViewKey } from "../lib/receptor-keys.js";
 import {
   buildDepositTransaction,
@@ -9,6 +10,7 @@ import {
   proveFromWitness,
   registerCounterpartyWithSecret,
 } from "../services/protocol.js";
+import { fetchIsRegistered } from "../services/stellar.js";
 
 export const txRouter = Router();
 
@@ -64,6 +66,53 @@ txRouter.post(
 );
 
 txRouter.post(
+  "/recover-view-key",
+  asyncHandler(async (req, res) => {
+    if (!config.persistRegisterState) {
+      res.status(403).json({ error: "Server-side view key recovery is disabled." });
+      return;
+    }
+
+    const { address } = req.body as { address?: string };
+    const walletHeader = String(req.headers["x-wallet-address"] ?? "");
+    if (!address?.trim()) {
+      res.status(400).json({ error: "Missing address" });
+      return;
+    }
+    if (!walletHeader || walletHeader !== address.trim()) {
+      res.status(403).json({
+        error: "Connect Freighter and retry — recovery requires x-wallet-address to match your address.",
+      });
+      return;
+    }
+
+    const trimmed = address.trim();
+    const registered = await fetchIsRegistered(trimmed, trimmed);
+    if (!registered) {
+      res.status(404).json({ error: "Address is not registered on-chain." });
+      return;
+    }
+
+    const state = await readRegisterState(trimmed);
+    if (!state?.sk) {
+      res.status(404).json({
+        error:
+          "No view key on file for this address. Register before this deploy, or from another browser without server persistence, cannot be recovered here.",
+      });
+      return;
+    }
+
+    res.json({
+      address: trimmed,
+      sk: state.sk,
+      pk: state.pk,
+      pkHash: state.pkHash,
+      savedAt: state.savedAt,
+    });
+  }),
+);
+
+txRouter.post(
   "/counterparty-view-key",
   asyncHandler(async (req, res) => {
     const { address } = req.body as { address?: string };
@@ -71,7 +120,7 @@ txRouter.post(
       res.status(400).json({ error: "Missing address" });
       return;
     }
-    const sk = resolveReceiverViewKey(address.trim());
+    const sk = await resolveReceiverViewKey(address.trim());
     if (!sk) {
       res.status(404).json({
         error: "No local demo view key for this address (run make proof-register-receptor)",

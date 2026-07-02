@@ -20,12 +20,14 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=8080
 ENV VK_BUILD_DIR=/app/circuits/build
+ENV REGISTER_STATE_DIR=/app/data/register-states
 
 COPY backend/package.json backend/package-lock.json* ./
 RUN npm ci --omit=dev && npm cache clean --force
 
 COPY --from=builder /app/dist ./dist
 COPY circuits/build ./circuits/build
+RUN mkdir -p /app/data/register-states
 
 EXPOSE 8080
 

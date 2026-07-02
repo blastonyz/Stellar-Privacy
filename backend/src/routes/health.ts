@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { config } from "../config.js";
+import { registerStateBackend } from "../lib/register-state-store.js";
 import { getContractFeatures } from "../services/contract-features.js";
 
 export const healthRouter = Router();
@@ -19,6 +20,12 @@ healthRouter.get("/health", async (req, res) => {
     rpc: config.rpcUrl,
     contractId: config.contractId || null,
     allowCounterpartyRegister: config.allowCounterpartyRegister,
+    registerState: {
+      enabled: config.persistRegisterState,
+      backend: registerStateBackend(),
+      bucket: config.gcsRegisterStateBucket || null,
+      prefix: config.gcsRegisterStatePrefix,
+    },
     features,
   });
 });

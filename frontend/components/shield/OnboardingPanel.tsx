@@ -10,7 +10,8 @@ type OnboardingPanelProps = {
 };
 
 export function OnboardingPanel({ mode }: OnboardingPanelProps) {
-  const { wallet, account, features, register, importViewKey, status } = useShield();
+  const { wallet, account, features, register, importViewKey, recoverViewKeyFromServer, status } =
+    useShield();
   const [importOpen, setImportOpen] = useState(false);
   const [importValue, setImportValue] = useState("");
   const [busy, setBusy] = useState(false);
@@ -69,19 +70,38 @@ export function OnboardingPanel({ mode }: OnboardingPanelProps) {
           <div className="space-y-2 text-sm text-amber-100">
             <p className="font-medium">Step 2 — View key required</p>
             <p>
-              You are registered on-chain but this browser has no view key. Paste a backup from the
-              device where you registered, or register from a new Stellar account.
+              You are registered on-chain but this browser has no view key. Use{" "}
+              <strong className="font-medium">Copy backup</strong> from the device where you
+              registered (JSON with a long <em>decimal</em> sk field).
+            </p>
+            <p className="text-xs text-amber-200/80">
+              Do not paste hex values from Compliance → Public Inputs (e.g.{" "}
+              <code className="text-amber-100">0dc0d265…</code>) — those are balance hashes, not
+              your view key.
             </p>
             {!importOpen ? (
-              <Button size="sm" variant="secondary" onClick={() => setImportOpen(true)}>
-                Import view key
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={busy}
+                  onClick={() => {
+                    setBusy(true);
+                    void recoverViewKeyFromServer().finally(() => setBusy(false));
+                  }}
+                >
+                  Recover from server
+                </Button>
+                <Button size="sm" variant="secondary" onClick={() => setImportOpen(true)}>
+                  Import view key
+                </Button>
+              </div>
             ) : (
               <div className="space-y-2">
                 <textarea
                   value={importValue}
                   onChange={(e) => setImportValue(e.target.value)}
-                  placeholder='Paste backup JSON or raw BabyJub secret (decimal string)'
+                  placeholder='Paste backup JSON {"version":1,"address":"G...","sk":"2105581..."} or decimal sk only'
                   className="min-h-[80px] w-full rounded-lg border border-amber-500/30 bg-slate-950 px-3 py-2 font-mono text-xs text-amber-50"
                 />
                 <div className="flex gap-2">

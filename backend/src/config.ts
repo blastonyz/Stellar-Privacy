@@ -43,6 +43,12 @@ export const config = {
   corsOrigin: process.env.CORS_ORIGIN ?? "*",
   /** Demo: POST /tx/register-counterparty accepts a Stellar secret to sign register server-side. */
   allowCounterpartyRegister: process.env.ALLOW_COUNTERPARTY_REGISTER !== "false",
+  /** Save BabyJub sk server-side when register proofs are built (testnet demo recovery). */
+  persistRegisterState: process.env.PERSIST_REGISTER_STATE !== "false",
+  registerStateDir: process.env.REGISTER_STATE_DIR ?? path.join(appRoot, "data", "register-states"),
+  /** When set, view keys are stored in this GCS bucket (recommended on Cloud Run). */
+  gcsRegisterStateBucket: process.env.GCS_REGISTER_STATE_BUCKET ?? "",
+  gcsRegisterStatePrefix: process.env.GCS_REGISTER_STATE_PREFIX ?? "register-states",
 };
 
 export function assertContractConfigured(): void {

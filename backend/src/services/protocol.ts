@@ -14,6 +14,7 @@ import {
   type JubPoint,
 } from "../lib/client.js";
 import { resolveReceiverViewKey, readCounterpartyRegisterState } from "../lib/receptor-keys.js";
+import { readRegisterState, saveRegisterState } from "../lib/register-state-store.js";
 import {
   encryptedBalanceToScVal,
   jubJubPointToScVal,
@@ -101,13 +102,17 @@ export async function buildRegisterTransaction(address: string) {
     ),
   );
 
+  const babyJub = {
+    sk: keypair.sk.toString(),
+    pk: { x: proofResult.pk.x.toString(), y: proofResult.pk.y.toString() },
+    pkHash: proofResult.pkHash,
+  };
+
+  await saveRegisterState(address, babyJub, "register");
+
   return {
     unsignedXdr,
-    babyJub: {
-      sk: keypair.sk.toString(),
-      pk: { x: proofResult.pk.x.toString(), y: proofResult.pk.y.toString() },
-      pkHash: proofResult.pkHash,
-    },
+    babyJub,
     publicSignals: proofResult.publicSignals,
   };
 }
@@ -131,7 +136,7 @@ export async function registerCounterpartyWithSecret(secretKey: string) {
   const caller = config.adminPublicKey || address;
   const alreadyRegistered = await fetchIsRegistered(caller, address);
   if (alreadyRegistered) {
-    const state = readCounterpartyRegisterState(address);
+    const state = (await readCounterpartyRegisterState(address)) ?? (await readRegisterState(address));
     return {
       address,
       alreadyRegistered: true as const,
@@ -160,11 +165,18 @@ export async function registerCounterpartyWithSecret(secretKey: string) {
     };
   } catch (error) {
     if (isAlreadyRegisteredError(error)) {
+      const state = await readRegisterState(address);
       return {
         address,
         alreadyRegistered: true as const,
         txHash: null,
-        babyJub: null,
+        babyJub: state
+          ? {
+              sk: state.sk,
+              pk: state.pk,
+              pkHash: state.pkHash,
+            }
+          : null,
       };
     }
     throw error;
@@ -207,7 +219,7 @@ export async function buildTransferTransaction(input: {
       ? BigInt(input.fromBalance)
       : await decryptSenderBalance(fromBalanceEnc, skFrom);
 
-  const resolvedToSk = resolveReceiverViewKey(input.to, input.toBabyJubSk);
+  const resolvedToSk = await resolveReceiverViewKey(input.to, input.toBabyJubSk);
 
   let vToOld: bigint;
   if (input.toBalance !== undefined) {

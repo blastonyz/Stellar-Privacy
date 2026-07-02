@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import { circuitPath } from "../config.js";
+import { readRegisterState as readPersistedRegisterState } from "./register-state-store.js";
 
 export type RegisterState = {
   stellarAddress?: string;
@@ -8,7 +9,7 @@ export type RegisterState = {
   pkHash?: string;
 };
 
-function readRegisterState(filename: string): RegisterState | null {
+function readCircuitRegisterState(filename: string): RegisterState | null {
   const statePath = circuitPath("register", filename);
   if (!fs.existsSync(statePath)) {
     return null;
@@ -20,21 +21,32 @@ function readRegisterState(filename: string): RegisterState | null {
   }
 }
 
-export function readCounterpartyRegisterState(address: string): RegisterState | null {
+export async function readCounterpartyRegisterState(address: string): Promise<RegisterState | null> {
   for (const filename of ["state-receptor.json", "state.json"]) {
-    const state = readRegisterState(filename);
+    const state = readCircuitRegisterState(filename);
     if (state?.sk && (!state.stellarAddress || state.stellarAddress === address)) {
       return state;
     }
   }
+
+  const persisted = await readPersistedRegisterState(address);
+  if (persisted?.sk) {
+    return {
+      stellarAddress: persisted.stellarAddress,
+      sk: persisted.sk,
+      pk: persisted.pk,
+      pkHash: persisted.pkHash,
+    };
+  }
+
   return null;
 }
 
-/** Demo / dev fallback: resolve a counterparty view key from env or local register state. */
-export function resolveReceiverViewKey(
+/** Demo / dev fallback: resolve a counterparty view key from env or persisted register state. */
+export async function resolveReceiverViewKey(
   receiverAddress: string,
   provided?: string,
-): string | undefined {
+): Promise<string | undefined> {
   if (provided) {
     return provided;
   }
@@ -44,6 +56,6 @@ export function resolveReceiverViewKey(
     return process.env.RECEPTOR_BABYJUB_SK;
   }
 
-  const state = readCounterpartyRegisterState(receiverAddress);
+  const state = await readCounterpartyRegisterState(receiverAddress);
   return state?.sk;
 }

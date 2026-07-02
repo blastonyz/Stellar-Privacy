@@ -67,6 +67,13 @@ export const shieldApi = {
   counterpartyViewKey: (address: string) =>
     post<{ address: string; sk: string }>("/tx/counterparty-view-key", { address }),
 
+  recoverViewKey: (address: string) =>
+    post<{ address: string; sk: string; pkHash: string; savedAt: string }>(
+      "/tx/recover-view-key",
+      { address },
+      { "x-wallet-address": address },
+    ),
+
   transfer: (input: {
     from: string;
     to: string;
